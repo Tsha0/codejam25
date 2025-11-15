@@ -1,9 +1,105 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { TypingAnimation } from "@/components/ui/typing-animation";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
 export default function WaitingPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState<"connecting" | "queued" | "matched" | "error">("connecting");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [position, setPosition] = useState<number>(0);
+
+  useEffect(() => {
+    // Get player name from URL params or generate a random one
+    const playerName = searchParams.get("player") || `Player_${Math.floor(Math.random() * 10000)}`;
+
+    let pollInterval: NodeJS.Timeout | null = null;
+    let isActive = true;
+
+    const joinMatchmaking = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/matchmaking/join`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ player_name: playerName }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to join matchmaking: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (!isActive) return;
+
+        if (data.status === "matched" && data.game) {
+          setStatus("matched");
+          // Redirect to game page with game ID
+          setTimeout(() => {
+            router.push(`/game/${data.game.game_id}?player=${encodeURIComponent(playerName)}`);
+          }, 1000);
+        } else if (data.status === "queued") {
+          setStatus("queued");
+          setPosition(data.position || 1);
+          // Start polling for match
+          startPolling(playerName);
+        }
+      } catch (error) {
+        console.error("Matchmaking error:", error);
+        if (isActive) {
+          setStatus("error");
+          setErrorMessage(error instanceof Error ? error.message : "Failed to connect to server");
+        }
+      }
+    };
+
+    const startPolling = (playerName: string) => {
+      pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/matchmaking/join`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ player_name: playerName }),
+          });
+
+          if (!response.ok) return;
+
+          const data = await response.json();
+
+          if (!isActive) return;
+
+          if (data.status === "matched" && data.game) {
+            setStatus("matched");
+            if (pollInterval) clearInterval(pollInterval);
+            // Redirect to game page with game ID
+            setTimeout(() => {
+              router.push(`/game/${data.game.game_id}?player=${encodeURIComponent(playerName)}`);
+            }, 1000);
+          } else if (data.status === "queued") {
+            setPosition(data.position || 1);
+          }
+        } catch (error) {
+          console.error("Polling error:", error);
+        }
+      }, 2000); // Poll every 2 seconds
+    };
+
+    joinMatchmaking();
+
+    return () => {
+      isActive = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [router, searchParams]);
+
   useEffect(() => {
     const embedScript = document.createElement("script");
     embedScript.type = "text/javascript";
@@ -96,10 +192,47 @@ export default function WaitingPage() {
 
       {/* Foreground content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center">
-        <TypingAnimation
-          className="text-4xl font-bold text-white"
-          text="Finding Opponent..."
-        />
+        <div className="text-center space-y-4">
+          {status === "connecting" && (
+            <TypingAnimation
+              className="text-4xl font-bold text-white"
+              text="Connecting to server..."
+            />
+          )}
+          {status === "queued" && (
+            <>
+              <TypingAnimation
+                className="text-4xl font-bold text-white"
+                text="Finding Opponent..."
+              />
+              {position > 0 && (
+                <p className="text-white/70 text-lg font-mono">
+                  Position in queue: {position}
+                </p>
+              )}
+            </>
+          )}
+          {status === "matched" && (
+            <TypingAnimation
+              className="text-4xl font-bold text-green-400"
+              text="Match Found! Redirecting..."
+            />
+          )}
+          {status === "error" && (
+            <div className="space-y-3">
+              <p className="text-4xl font-bold text-red-400">Connection Error</p>
+              <p className="text-white/70 text-sm font-mono max-w-md">
+                {errorMessage}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 px-6 py-2 bg-white text-black font-mono text-sm hover:bg-white/90 transition-colors"
+              >
+                RETRY
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <style jsx>{`
