@@ -25,7 +25,7 @@ export default function Home() {
       {/* Background Paper Shaders */}
       <MeshGradient
         className="w-full h-full fixed inset-0"
-        colors={["#000000", "#1a1a1a", "#333333", "#4a148c"]}
+        colors={["#000000", "#1a1a1a", "#333333", "#555555"]}
         speed={0.8}
       />
       

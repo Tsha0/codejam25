@@ -16,14 +16,14 @@ export function Footer() {
           <div className="flex flex-col items-center gap-4 text-center">
             <p className="text-sm text-gray-400 flex items-center gap-2">
               Built for fun and competitive creativity
-              <Heart className="w-4 h-4 text-purple-500" />
+              <Heart className="w-4 h-4 text-gray-400" />
             </p>
             <div className="flex gap-6 text-xs text-gray-500">
-              <a href="#" className="hover:text-purple-400 transition-colors">Terms</a>
+              <a href="#" className="hover:text-gray-300 transition-colors">Terms</a>
               <span className="text-gray-700">•</span>
-              <a href="#" className="hover:text-purple-400 transition-colors">Privacy</a>
+              <a href="#" className="hover:text-gray-300 transition-colors">Privacy</a>
               <span className="text-gray-700">•</span>
-              <a href="#" className="hover:text-purple-400 transition-colors">Contact</a>
+              <a href="#" className="hover:text-gray-300 transition-colors">Contact</a>
             </div>
           </div>
         </div>

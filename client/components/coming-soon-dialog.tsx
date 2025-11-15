@@ -21,12 +21,12 @@ export function ComingSoonDialog({ open, onOpenChange }: ComingSoonDialogProps) 
             transition={{ duration: 0.3 }}
             className="flex justify-center mb-4"
           >
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center">
               <Clock className="w-8 h-8 text-white" />
             </div>
           </motion.div>
           
-          <DialogTitle className="text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-400">
+          <DialogTitle className="text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             Matchmaking Coming Soon
           </DialogTitle>
           
@@ -41,8 +41,8 @@ export function ComingSoonDialog({ open, onOpenChange }: ComingSoonDialogProps) 
           transition={{ delay: 0.2, duration: 0.3 }}
           className="pt-4 space-y-4"
         >
-          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 text-purple-300 font-medium">
+          <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-4 space-y-2">
+            <div className="flex items-center gap-2 text-gray-300 font-medium">
               <Sparkles className="w-4 h-4" />
               <span>What to expect:</span>
             </div>
@@ -56,7 +56,7 @@ export function ComingSoonDialog({ open, onOpenChange }: ComingSoonDialogProps) 
 
           <Button
             onClick={() => onOpenChange(false)}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white font-semibold"
+            className="w-full bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-white font-semibold"
           >
             Got it!
           </Button>

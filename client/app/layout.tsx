@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Competitive Vibecoding - 1v1 Prompt Battle",
-  description: "A 1v1 prompt battle to recreate iconic apps by vibe alone. Challenge your friends and let AI judge who captures the essence best.",
+  title: "Competitive Vibecoding",
+  description: "1v1 prompt battle to recreate apps by vibe alone.",
 };
 
 export default function RootLayout({

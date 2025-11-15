@@ -18,7 +18,7 @@ export function MockPreview() {
         {/* Three.js WebGL Shader Background */}
         <div className="absolute inset-0 opacity-20 pointer-events-none">
           <Canvas camera={{ position: [0, 0, 2], fov: 50 }}>
-            <ShaderPlane position={[0, 0, 0]} color1="#7c3aed" color2="#ffffff" />
+            <ShaderPlane position={[0, 0, 0]} color1="#666666" color2="#ffffff" />
           </Canvas>
         </div>
         
@@ -48,20 +48,20 @@ export function MockPreview() {
               transition={{ delay: 0.6, duration: 0.5 }}
               className="lg:col-span-1 space-y-3"
             >
-              <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                 Target App
               </div>
               <div className="aspect-[9/16] lg:aspect-[3/4] rounded-lg bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 border border-white/5 flex items-center justify-center backdrop-blur-sm overflow-hidden">
                 <div className="relative w-full h-full p-4 space-y-3">
                   {/* Mock app interface elements */}
-                  <div className="h-8 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded"></div>
+                  <div className="h-8 bg-gradient-to-r from-gray-600/20 to-gray-700/20 rounded"></div>
                   <div className="space-y-2">
                     <div className="h-4 w-3/4 bg-white/5 rounded"></div>
                     <div className="h-4 w-1/2 bg-white/5 rounded"></div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 pt-2">
-                    <div className="h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded"></div>
-                    <div className="h-20 bg-gradient-to-br from-blue-500/10 to-transparent rounded"></div>
+                    <div className="h-20 bg-gradient-to-br from-gray-500/10 to-transparent rounded"></div>
+                    <div className="h-20 bg-gradient-to-br from-gray-600/10 to-transparent rounded"></div>
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-5xl opacity-20">?</div>
@@ -72,7 +72,7 @@ export function MockPreview() {
 
             {/* Player Results Side by Side */}
             <div className="lg:col-span-2 space-y-3">
-              <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                 Player Submissions
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -84,20 +84,20 @@ export function MockPreview() {
                   className="space-y-2"
                 >
                   <div className="flex items-center gap-2 text-sm">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center text-xs font-bold">
                       P1
                     </div>
                     <span className="text-gray-400">Player 1</span>
                   </div>
-                  <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-cyan-600/10 to-blue-600/10 border border-cyan-500/20 p-3 space-y-2">
-                    <div className="h-6 bg-cyan-500/20 rounded"></div>
+                  <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-gray-600/10 to-gray-700/10 border border-gray-500/20 p-3 space-y-2">
+                    <div className="h-6 bg-gray-500/20 rounded"></div>
                     <div className="space-y-1.5">
                       <div className="h-3 w-full bg-white/5 rounded"></div>
                       <div className="h-3 w-2/3 bg-white/5 rounded"></div>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 pt-1">
-                      <div className="h-16 bg-cyan-500/10 rounded"></div>
-                      <div className="h-16 bg-blue-500/10 rounded"></div>
+                      <div className="h-16 bg-gray-500/10 rounded"></div>
+                      <div className="h-16 bg-gray-600/10 rounded"></div>
                     </div>
                   </div>
                 </motion.div>
@@ -110,20 +110,20 @@ export function MockPreview() {
                   className="space-y-2"
                 >
                   <div className="flex items-center gap-2 text-sm">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-xs font-bold">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-xs font-bold">
                       P2
                     </div>
                     <span className="text-gray-400">Player 2</span>
                   </div>
-                  <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-pink-600/10 to-purple-600/10 border border-purple-500/20 p-3 space-y-2">
-                    <div className="h-6 bg-purple-500/20 rounded"></div>
+                  <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-gray-700/10 to-gray-800/10 border border-gray-500/20 p-3 space-y-2">
+                    <div className="h-6 bg-gray-600/20 rounded"></div>
                     <div className="space-y-1.5">
                       <div className="h-3 w-full bg-white/5 rounded"></div>
                       <div className="h-3 w-3/4 bg-white/5 rounded"></div>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 pt-1">
-                      <div className="h-16 bg-pink-500/10 rounded"></div>
-                      <div className="h-16 bg-purple-500/10 rounded"></div>
+                      <div className="h-16 bg-gray-700/10 rounded"></div>
+                      <div className="h-16 bg-gray-600/10 rounded"></div>
                     </div>
                   </div>
                 </motion.div>
@@ -138,8 +138,8 @@ export function MockPreview() {
             transition={{ delay: 1.2, duration: 0.5 }}
             className="mt-6 text-center"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-500/10 border border-gray-500/20">
+              <Sparkles className="w-4 h-4 text-gray-400" />
               <span className="text-sm text-gray-400">AI judges which design captures the vibe best</span>
             </div>
           </motion.div>

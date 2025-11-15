@@ -37,7 +37,7 @@ export function HowItWorks({ open, onOpenChange }: HowItWorksProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-gradient-to-br from-zinc-900 to-zinc-950 border-white/10 text-white">
         <DialogHeader>
-          <DialogTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-400">
+          <DialogTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             How It Works
           </DialogTitle>
         </DialogHeader>
@@ -52,13 +52,13 @@ export function HowItWorks({ open, onOpenChange }: HowItWorksProps) {
               className="flex gap-4 group"
             >
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <step.icon className="w-6 h-6 text-white" />
                 </div>
               </div>
               
               <div className="flex-1 pt-1">
-                <h3 className="text-lg font-semibold text-white mb-1 group-hover:text-purple-300 transition-colors">
+                <h3 className="text-lg font-semibold text-white mb-1 group-hover:text-gray-300 transition-colors">
                   Step {index + 1}: {step.title}
                 </h3>
                 <p className="text-gray-400 leading-relaxed">
