@@ -96,7 +96,7 @@ export default function DashboardPage() {
                       game.result === "win" ? "bg-green-400" : "bg-red-400"
                     }`} />
                     <div>
-                      <div className="font-mono font-semibold">vs {game.opponent}</div>
+                      <div className="font-mono font-semibold text-white">vs {game.opponent}</div>
                       <div className="text-sm text-white/60 font-mono">{game.date}</div>
                     </div>
                   </div>
