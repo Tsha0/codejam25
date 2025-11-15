@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from google import genai
 
-from .schemas import Game, serialize_dt, utc_now
+from ..schemas import Game, serialize_dt, utc_now
 
 GEMINI_MODEL = "gemini-2.5-flash"
 

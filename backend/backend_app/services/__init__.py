@@ -13,6 +13,8 @@ Usage:
 
 from __future__ import annotations
 
+import os
+
 # Import exceptions and utilities
 from .base import (
     ConflictError,
@@ -24,7 +26,7 @@ from .base import (
 )
 
 # Import service classes
-from .ai_service import AiService
+from .gemini_api import AiService
 from .game_service import GameService
 from .lobby_service import LobbyService
 from .matchmaking_service import MatchmakingService
@@ -33,7 +35,8 @@ from .matchmaking_service import MatchmakingService
 game_service = GameService()
 lobby_service = LobbyService()
 matchmaking_service = MatchmakingService(game_service)
-ai_service = AiService(game_service)
+# Initialize AI service with Gemini API key from environment
+ai_service = AiService(game_service, api_key=os.getenv("GEMINI_API_KEY"))
 
 # Export all
 __all__ = [

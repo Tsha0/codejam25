@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from threading import Lock
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from ..events import emit_game_event
 from ..schemas import Game, utc_now
@@ -122,6 +122,37 @@ class GameService:
 
         emit_game_event(game_id, "prompt_submitted", {"gameId": game_id, "player": canonical_player})
         return game
+
+    def record_player_output(self, game_id: str, player_name: str, output: str) -> Tuple[Game, str]:
+        """Record a player's generated output for a game.
+        
+        Args:
+            game_id: The game ID
+            player_name: The player's name
+            output: The generated HTML/CSS/JS output
+            
+        Returns:
+            Tuple of (updated game, canonical player name)
+            
+        Raises:
+            NotFoundError: If game doesn't exist
+            ValidationError: If player is invalid
+        """
+        with self._lock:
+            game = self._games.get(game_id)
+            if not game:
+                raise NotFoundError("Game not found.")
+            canonical_player = self._canonical_player(game, player_name)
+            game.outputs[canonical_player] = output
+            game = replace(
+                game,
+                outputs=dict(game.outputs),
+                updated_at=utc_now(),
+            )
+            self._games[game_id] = game
+
+        emit_game_event(game_id, "output_generated", {"gameId": game_id, "player": canonical_player})
+        return game, canonical_player
 
     def mark_processing(self, game_id: str) -> Game:
         """Mark a game as processing.

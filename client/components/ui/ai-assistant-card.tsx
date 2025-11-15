@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface ComponentProps {
   opponentID?: string;
   question?: string;
-  onSubmit?: (isSubmitted: boolean) => void;
+  onSubmit?: (isSubmitted: boolean, promptText: string) => void;
 }
 
 export const Component = ({ 
@@ -22,8 +22,9 @@ export const Component = ({
 
   useEffect(() => {
     if (isSubmitted || timeLeft <= 0) {
-      if (timeLeft <= 0 && onSubmit) {
-        onSubmit(true);
+      if (timeLeft <= 0 && onSubmit && !isSubmitted) {
+        setIsSubmitted(true);
+        onSubmit(true, promptText);
       }
       return;
     }
@@ -33,7 +34,7 @@ export const Component = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, onSubmit, isSubmitted]);
+  }, [timeLeft, onSubmit, isSubmitted, promptText]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -45,14 +46,14 @@ export const Component = ({
     if (!isSubmitted) {
       setIsSubmitted(true);
       if (onSubmit) {
-        onSubmit(true);
+        onSubmit(true, promptText);
       }
     }
   };
 
   const isTimeUp = timeLeft === 0 || isSubmitted;
   return (
-    <Card className="flex h-full min-h-[800px] w-full max-w-[480px] flex-col gap-6 p-4 shadow-2xl bg-gradient-to-br from-slate-900/90 via-gray-900/90 to-zinc-900/90 backdrop-blur-md border border-slate-400/30">
+    <Card className="flex h-full min-h-[800px] w-full max-w-[480px] flex-col gap-6 p-4 shadow-2xl bg-white/20 backdrop-blur-lg border-2 border-white/60">
       <div className="flex flex-row items-center justify-end p-0">
         <Button variant="ghost" size="icon" className="size-8">
           <svg
@@ -65,7 +66,7 @@ export const Component = ({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="size-4 text-muted-foreground"
+            className="size-4 text-gray-700"
           >
             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
             <path d="M18 6l-12 12" />
@@ -278,20 +279,20 @@ export const Component = ({
 
           <div className="flex flex-col space-y-6 text-left w-full">
             <div className="flex flex-col space-y-3">
-              <h2 className="text-xl font-semibold tracking-tight text-slate-100">
+              <h2 className="text-xl font-semibold tracking-tight text-gray-900">
                 Your challenger is {opponentID}
               </h2>
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-gray-800">
                 Write the best detailed prompt possible to solve the question.
               </p>
             </div>
 
             <div className="flex flex-col space-y-4 w-full">
-              <div className="rounded-lg border border-slate-400/40 bg-gradient-to-br from-slate-800/80 to-gray-900/80 backdrop-blur-sm p-4 shadow-lg">
-                <h3 className="text-xs font-medium uppercase tracking-wide text-slate-300/90 mb-2">
+              <div className="rounded-lg border border-white/50 bg-white/30 backdrop-blur-sm p-4 shadow-lg">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-gray-800 mb-2">
                   Question
                 </h3>
-                <p className="text-base font-medium text-slate-100">
+                <p className="text-base font-medium text-gray-900">
                   {question}
                 </p>
               </div>
@@ -303,9 +304,9 @@ export const Component = ({
                     isSubmitted ? 'opacity-0' : 'opacity-100'
                   }`}
                 >
-                  <span className="text-xs text-slate-400 uppercase tracking-wide">Time Remaining</span>
+                  <span className="text-xs text-gray-700 uppercase tracking-wide">Time Remaining</span>
                   <div className={`text-5xl font-bold tabular-nums tracking-tight ${
-                    timeLeft <= 10 ? 'text-red-400' : 'text-slate-100'
+                    timeLeft <= 10 ? 'text-red-600' : 'text-gray-900'
                   }`}>
                     {formatTime(timeLeft)}
                   </div>
@@ -326,14 +327,14 @@ export const Component = ({
           </div>
         </div>
 
-        <div className="relative mt-auto flex-col rounded-md ring-1 ring-slate-400/30 bg-gradient-to-br from-slate-800/60 to-gray-900/60 backdrop-blur-sm shadow-inner">
+        <div className="relative mt-auto flex-col rounded-md ring-1 ring-white/50 bg-white/25 backdrop-blur-md shadow-inner">
           <div className="relative">
             <Textarea
               placeholder="Write your prompt here..."
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               disabled={isTimeUp}
-              className="peer bg-transparent text-white placeholder:text-slate-400 min-h-[100px] max-h-[400px] resize-none rounded-b-none border-none py-3 ps-3 pe-9 shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+              className="peer bg-transparent text-gray-900 placeholder:text-gray-700 min-h-[100px] max-h-[400px] resize-none rounded-b-none border-none py-3 ps-3 pe-9 shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 height: 'auto',
                 minHeight: '100px',
@@ -362,9 +363,9 @@ export const Component = ({
 
           </div>
 
-          <div className="flex items-center justify-end rounded-b-md border-t border-slate-400/30 bg-gradient-to-br from-slate-800/80 to-gray-900/80 px-3 py-2">
+          <div className="flex items-center justify-end rounded-b-md border-t border-white/50 bg-white/30 backdrop-blur-sm px-3 py-2">
             <Button 
-              className="h-8 px-4 text-sm font-medium bg-slate-700/80 hover:bg-slate-600/90 border border-slate-400/40 text-slate-100 shadow-lg hover:shadow-xl transition-all"
+              className="h-8 px-4 text-sm font-medium bg-gray-700/70 hover:bg-gray-800/80 border border-white/50 text-white shadow-lg hover:shadow-xl transition-all"
               disabled={isTimeUp}
               onClick={handleSubmit}
             >

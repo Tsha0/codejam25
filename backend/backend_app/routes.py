@@ -149,9 +149,16 @@ def game_detail(game_id: str):
 @api_bp.route("/game/<game_id>/prompt", methods=["POST"])
 def submit_prompt(game_id: str):
     data = _payload()
-    game = ai_service.submit_prompt(game_id, data.get("player_name"), data.get("prompt"))
+    game, canonical_player, sections = ai_service.submit_prompt(
+        game_id, data.get("player_name"), data.get("prompt")
+    )
     status_code = HTTPStatus.OK if game.status != "processing" else HTTPStatus.ACCEPTED
-    return jsonify({"game": game.to_dict(), "status": game.status}), status_code
+    return jsonify({
+        "game": game.to_dict(), 
+        "status": game.status,
+        "player": canonical_player,
+        "sections": sections,
+    }), status_code
 
 
 @api_bp.route("/game/<game_id>/complete", methods=["POST"])
