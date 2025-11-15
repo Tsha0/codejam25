@@ -7,6 +7,7 @@ from threading import Lock
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from ..events import emit_game_event
+from ..prompts import get_random_prompt
 from ..schemas import Game, utc_now
 from .base import NotFoundError, ValidationError, generate_id, normalize_name
 
@@ -35,7 +36,7 @@ class GameService:
         
         Args:
             players: List of exactly 2 player names
-            assigned_image: Optional image assignment
+            assigned_image: Optional image assignment (prompt text or None for random)
             source: Source of game creation (manual, matchmaking, lobby)
             
         Returns:
@@ -50,6 +51,11 @@ class GameService:
         normalized_players = [normalize_name(player, field="player_name") for player in players]
         game_id = generate_id("game")
         timestamp = utc_now()
+        
+        # If no assigned_image provided, select a random prompt
+        if not assigned_image:
+            prompt = get_random_prompt()
+            assigned_image = prompt.get_full_prompt()
         
         game = Game(
             id=game_id,

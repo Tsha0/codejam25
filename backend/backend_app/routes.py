@@ -6,6 +6,7 @@ from http import HTTPStatus
 from flask import Blueprint, jsonify, request
 
 from .events import emit_lobby_event
+from .prompts import get_all_prompts
 from .services import (
     ConflictError,
     NotFoundError,
@@ -194,3 +195,14 @@ def ai_resolve():
     game = ai_service.process_game(data.get("game_id"))
     return jsonify({"game": game.to_dict()})
 
+
+# Prompt endpoints --------------------------------------------------------
+
+
+@api_bp.route("/prompts", methods=["GET"])
+def list_prompts():
+    prompts = get_all_prompts()
+    return jsonify({
+        "prompts": [p.to_dict() for p in prompts],
+        "count": len(prompts)
+    })
