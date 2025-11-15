@@ -1,6 +1,9 @@
 'use client';
-
+import Link from "next/link";
 import { useEffect } from 'react';
+import { Info } from 'lucide-react';
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
+import { MockPreview } from '@/components/mock-preview';
 
 export default function Home() {
   useEffect(() => {
@@ -153,9 +156,22 @@ export default function Home() {
 
             {/* Description with subtle grid pattern */}
             <div className="relative">
-              <p className="text-xs lg:text-base text-gray-300 mb-5 lg:mb-6 leading-relaxed font-mono opacity-80">
-                You got what it takes to outvibe your opponent?
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs lg:text-base text-gray-300 mb-5 lg:mb-6 leading-relaxed font-mono opacity-80">
+                  You got what it takes to outvibe your opponent?
+                </p>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="mb-5 lg:mb-6 text-white/60 hover:text-white transition-colors duration-200 cursor-pointer group">
+                      <Info className="w-4 h-4 lg:w-5 lg:h-5" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-[95vw] lg:max-w-5xl bg-black/95 border-white/20 text-white">
+                    <DialogTitle className="sr-only">Game Preview</DialogTitle>
+                    <MockPreview />
+                  </DialogContent>
+                </Dialog>
+              </div>
               
               {/* Technical corner accent - desktop only */}
               <div className="hidden lg:block absolute -right-4 top-1/2 w-3 h-3 border border-white opacity-30" style={{ transform: 'translateY(-50%)' }}>
@@ -165,11 +181,19 @@ export default function Home() {
 
             {/* Buttons with technical accents */}
             <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
-              <button className="relative px-5 lg:px-6 py-2 lg:py-2.5 bg-transparent text-white font-mono text-xs lg:text-sm border border-white hover:bg-white hover:text-black transition-all duration-200 group">
+              {/* <button className="relative px-5 lg:px-6 py-2 lg:py-2.5 bg-transparent text-white font-mono text-xs lg:text-sm border border-white hover:bg-white hover:text-black transition-all duration-200 group">
                 <span className="hidden lg:block absolute -top-1 -left-1 w-2 h-2 border-t border-l border-white opacity-0 group-hover:opacity-100 transition-opacity"></span>
                 <span className="hidden lg:block absolute -bottom-1 -right-1 w-2 h-2 border-b border-r border-white opacity-0 group-hover:opacity-100 transition-opacity"></span>
                 FIND GAME
-              </button>
+              </button> */}
+              <Link
+                href="/game/waiting"
+                className="relative px-5 lg:px-6 py-2 lg:py-2.5 bg-transparent text-white font-mono text-xs lg:text-sm border border-white hover:bg-white hover:text-black transition-all duration-200 group inline-flex items-center justify-center"
+              >
+                <span className="hidden lg:block absolute -top-1 -left-1 w-2 h-2 border-t border-l border-white opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                <span className="hidden lg:block absolute -bottom-1 -right-1 w-2 h-2 border-b border-r border-white opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                FIND GAME
+              </Link>
               
               <button className="relative px-5 lg:px-6 py-2 lg:py-2.5 bg-transparent border border-white text-white font-mono text-xs lg:text-sm hover:bg-white hover:text-black transition-all duration-200" style={{ borderWidth: '1px' }}>
                 VISIT DASHBOARD
