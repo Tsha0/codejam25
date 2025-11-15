@@ -33,6 +33,9 @@ export default function GameplayPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [translateX, setTranslateX] = useState(0);
+  const [generatedHTML, setGeneratedHTML] = useState<string>("");
+  const [generatedCSS, setGeneratedCSS] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch game data
   useEffect(() => {
@@ -83,8 +86,44 @@ export default function GameplayPage() {
     return () => window.removeEventListener('resize', updateTranslation);
   }, []);
 
-  const handleSubmit = (submitted: boolean) => {
+  const handleSubmit = async (submitted: boolean, promptText: string) => {
+    if (!submitted || !playerName) return;
+    
     setIsSubmitted(submitted);
+    setIsGenerating(true);
+
+    try {
+      console.log('🚀 Submitting prompt to API:', { gameId, playerName, prompt: promptText });
+      
+      const response = await fetch(`${API_BASE_URL}/game/${gameId}/prompt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          player_name: playerName,
+          prompt: promptText,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit prompt: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Received generated output:', data);
+
+      if (data.sections) {
+        setGeneratedHTML(data.sections.html || "");
+        setGeneratedCSS(data.sections.css || "");
+      }
+      
+      setIsGenerating(false);
+    } catch (err) {
+      console.error('❌ Error submitting prompt:', err);
+      setError(err instanceof Error ? err.message : "Failed to submit prompt");
+      setIsGenerating(false);
+    }
   };
 
   // Loading state
@@ -132,7 +171,7 @@ export default function GameplayPage() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <div className="absolute inset-0 flex items-start p-8">
+      <div className="absolute inset-0 flex items-stretch p-8 gap-8">
         {/* Card container with smooth transform animation */}
         <div
           className="shrink-0 will-change-transform"
@@ -150,17 +189,64 @@ export default function GameplayPage() {
         
         {/* Right side content that fades in */}
         <div 
-          className={`flex-1 ml-8 flex items-center justify-center transition-opacity duration-1000 delay-1000 ${
+          className={`flex-1 transition-opacity duration-1000 delay-1000 ${
             isSubmitted ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
-          <div className="text-white text-lg">
-            {/* Future content will go here */}
-            <div className="font-mono space-y-2">
-              <p>Game Status: {gameData.status}</p>
-              <p>Players: {gameData.players.join(", ")}</p>
+          {isGenerating ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-white text-center space-y-4">
+                <div className="text-2xl font-mono animate-pulse">
+                  Generating your creation...
+                </div>
+                <div className="text-sm text-slate-400">
+                  AI is bringing your prompt to life
+                </div>
+              </div>
             </div>
-          </div>
+          ) : generatedHTML ? (
+            <div className="w-full h-full flex flex-col space-y-4 p-4">
+              <div className="text-white text-lg font-mono">
+                Your Generated Creation
+              </div>
+              <div className="flex-1 bg-white rounded-lg shadow-2xl overflow-auto border-4 border-slate-400/50">
+                <iframe
+                  srcDoc={`
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <style>
+                          body {
+                            margin: 0;
+                            padding: 16px;
+                            font-family: system-ui, -apple-system, sans-serif;
+                          }
+                          ${generatedCSS}
+                        </style>
+                      </head>
+                      <body>
+                        ${generatedHTML}
+                      </body>
+                    </html>
+                  `}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts"
+                  title="Generated Output"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-white text-lg">
+                <div className="font-mono space-y-2 text-center">
+                  <p className="text-2xl">⏳</p>
+                  <p>Waiting for generation to complete...</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

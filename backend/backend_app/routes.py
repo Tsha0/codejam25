@@ -9,6 +9,7 @@ import requests
 from flask import Blueprint, jsonify, request
 
 from .events import emit_lobby_event
+from .prompts import get_all_prompts
 from .services import (
     ConflictError,
     ExternalServiceError,
@@ -287,3 +288,14 @@ def ai_submit():
 
 
 
+
+# Prompt endpoints --------------------------------------------------------
+
+
+@api_bp.route("/prompts", methods=["GET"])
+def list_prompts():
+    prompts = get_all_prompts()
+    return jsonify({
+        "prompts": [p.to_dict() for p in prompts],
+        "count": len(prompts)
+    })

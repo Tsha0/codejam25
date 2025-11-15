@@ -13,6 +13,8 @@ Usage:
 
 from __future__ import annotations
 
+import os
+
 # Import exceptions and utilities
 from .base import (
     ConflictError,
@@ -66,7 +68,6 @@ if _gemini_api_key:
     if not _gemini_api_key:
         _gemini_api_key = None
 ai_service = AiService(game_service, api_key=_gemini_api_key)
-
 # Export all
 __all__ = [
     # Exceptions
