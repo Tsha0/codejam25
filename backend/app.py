@@ -9,7 +9,7 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    host = os.getenv("HOST", "127.0.0.1")
+    host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
     allow_unsafe = app.config.get("ENVIRONMENT", "development") != "production"
     socketio.run(
