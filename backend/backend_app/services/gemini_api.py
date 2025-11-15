@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 from uuid import uuid4
 
 from google import genai
+from google.genai import types
 
 from ..schemas import Game, serialize_dt, utc_now
 
@@ -65,6 +67,7 @@ class AiService:
             game_id,
             canonical_player,
             combined_output,
+            sections=sections,  # Store sections separately
         )
         return game, canonical_player, sections
 
@@ -227,4 +230,241 @@ class AiService:
         length_score = min(len(output) * 0.02, 70)
         diversity_score = min(unique_words * 0.5, 30)
         return round(length_score + diversity_score, 2)
+
+    def score_submissions(self, game_id: str) -> Game:
+        """Score a game by comparing player submissions with images and prompts.
+        
+        Uses Gemini API to evaluate submissions based on:
+        - Visual Design and Aesthetics (20 points)
+        - Adherence to requirement (20 points)
+        - Creativity and Innovation (20 points)
+        - Prompt Clarity (20 points)
+        - Prompt Formulation (20 points)
+        
+        Args:
+            game_id: The game ID
+            
+        Returns:
+            The completed game with scores and feedback
+            
+        Raises:
+            ValueError: If not all submissions are available
+            ExternalServiceError: If Gemini API fails
+        """
+        game = self._game_service.get_game(game_id)
+        
+        # Check all players have submitted
+        missing = [player for player in game.players if player not in game.submissions]
+        if missing:
+            raise ValueError("All player submissions are required before scoring.")
+        
+        # Check all players have prompts
+        missing_prompts = [player for player in game.players if player not in game.prompts]
+        if missing_prompts:
+            raise ValueError("All player prompts are required before scoring.")
+        
+        if not self._client:
+            raise ExternalServiceError("Gemini client is not configured.")
+        
+        # Load images
+        player1, player2 = game.players[0], game.players[1]
+        image1_path = game.submissions[player1]
+        image2_path = game.submissions[player2]
+        
+        # Read images
+        try:
+            with open(image1_path, 'rb') as f:
+                image1_bytes = f.read()
+            with open(image2_path, 'rb') as f:
+                image2_bytes = f.read()
+        except Exception as exc:
+            raise ExternalServiceError(f"Failed to read submission images: {str(exc)}") from exc
+        
+        # Determine MIME type from file extension
+        def get_mime_type(path: str) -> str:
+            ext = Path(path).suffix.lower()
+            mime_types = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp',
+                '.heic': 'image/heic',
+                '.heif': 'image/heif',
+            }
+            return mime_types.get(ext, 'image/jpeg')
+        
+        mime1 = get_mime_type(image1_path)
+        mime2 = get_mime_type(image2_path)
+        
+        # Create image parts
+        image1_part = types.Part.from_bytes(data=image1_bytes, mime_type=mime1)
+        image2_part = types.Part.from_bytes(data=image2_bytes, mime_type=mime2)
+        
+        # Build scoring prompt
+        requirement = game.assigned_image or "the challenge requirements"
+        prompt1 = game.prompts[player1]
+        prompt2 = game.prompts[player2]
+        
+        scoring_prompt = f"""You are judging a creative coding competition. Two players have submitted their work based on the requirement: "{requirement}".
+
+Player 1 ({player1}) prompt: "{prompt1}"
+Player 2 ({player2}) prompt: "{prompt2}"
+
+Evaluate both submissions based on these 5 criteria (20 points each, total 100 points):
+
+1. Visual Design and Aesthetics (20 points)
+2. Adherence to requirement (20 points)
+3. Creativity and Innovation (20 points)
+4. Prompt Clarity (20 points)
+5. Prompt Formulation (20 points)
+
+Respond ONLY with valid JSON in this exact format:
+{{
+  "player1": {{
+    "visual_design": <number 0-20>,
+    "adherence": <number 0-20>,
+    "creativity": <number 0-20>,
+    "prompt_clarity": <number 0-20>,
+    "prompt_formulation": <number 0-20>,
+    "feedback": {{
+      "visual_design": "<feedback text>",
+      "adherence": "<feedback text>",
+      "creativity": "<feedback text>",
+      "prompt_clarity": "<feedback text>",
+      "prompt_formulation": "<feedback text>"
+    }}
+  }},
+  "player2": {{
+    "visual_design": <number 0-20>,
+    "adherence": <number 0-20>,
+    "creativity": <number 0-20>,
+    "prompt_clarity": <number 0-20>,
+    "prompt_formulation": <number 0-20>,
+    "feedback": {{
+      "visual_design": "<feedback text>",
+      "adherence": "<feedback text>",
+      "creativity": "<feedback text>",
+      "prompt_clarity": "<feedback text>",
+      "prompt_formulation": "<feedback text>"
+    }}
+  }}
+}}
+
+Do NOT wrap the JSON in markdown fences. Return only the JSON object."""
+        
+        try:
+            # Call Gemini API with both images
+            response = self._client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=[
+                    scoring_prompt,
+                    image1_part,
+                    image2_part,
+                ],
+                config={
+                    "temperature": 0.3,
+                    "top_p": 0.8,
+                    "top_k": 32,
+                    "max_output_tokens": 8192,
+                    "response_mime_type": "application/json",
+                },
+            )
+            
+            raw_text = self._extract_response_text(response)
+            scores_data = self._parse_json_response(raw_text)
+            
+            # The response uses "player1" and "player2" keys, map to actual player names
+            p1_key = "player1"
+            p2_key = "player2"
+            
+            if p1_key not in scores_data or p2_key not in scores_data:
+                raise ExternalServiceError("Gemini response missing required scoring data.")
+            
+            # Extract category scores and feedback
+            p1_data = scores_data[p1_key]
+            p2_data = scores_data[p2_key]
+            
+            # Extract individual category scores
+            category_scores = {
+                player1: {
+                    "visual_design": float(p1_data.get("visual_design", 0)),
+                    "adherence": float(p1_data.get("adherence", 0)),
+                    "creativity": float(p1_data.get("creativity", 0)),
+                    "prompt_clarity": float(p1_data.get("prompt_clarity", 0)),
+                    "prompt_formulation": float(p1_data.get("prompt_formulation", 0)),
+                },
+                player2: {
+                    "visual_design": float(p2_data.get("visual_design", 0)),
+                    "adherence": float(p2_data.get("adherence", 0)),
+                    "creativity": float(p2_data.get("creativity", 0)),
+                    "prompt_clarity": float(p2_data.get("prompt_clarity", 0)),
+                    "prompt_formulation": float(p2_data.get("prompt_formulation", 0)),
+                },
+            }
+            
+            # Calculate total scores as sum of all categories
+            scores = {
+                player1: sum(category_scores[player1].values()),
+                player2: sum(category_scores[player2].values()),
+            }
+            
+            feedback = {
+                player1: {
+                    "visual_design": p1_data.get("feedback", {}).get("visual_design", ""),
+                    "adherence": p1_data.get("feedback", {}).get("adherence", ""),
+                    "creativity": p1_data.get("feedback", {}).get("creativity", ""),
+                    "prompt_clarity": p1_data.get("feedback", {}).get("prompt_clarity", ""),
+                    "prompt_formulation": p1_data.get("feedback", {}).get("prompt_formulation", ""),
+                },
+                player2: {
+                    "visual_design": p2_data.get("feedback", {}).get("visual_design", ""),
+                    "adherence": p2_data.get("feedback", {}).get("adherence", ""),
+                    "creativity": p2_data.get("feedback", {}).get("creativity", ""),
+                    "prompt_clarity": p2_data.get("feedback", {}).get("prompt_clarity", ""),
+                    "prompt_formulation": p2_data.get("feedback", {}).get("prompt_formulation", ""),
+                },
+            }
+            
+            # Determine winner based on total score
+            winner = max(scores.items(), key=lambda item: item[1])[0] if scores else None
+            
+            # Update game with scores, category scores, and feedback
+            game.scores = scores
+            game.category_scores = category_scores
+            game.feedback = feedback
+            game.winner = winner
+            
+            return self._game_service.complete_game(
+                game_id,
+                scores=scores,
+                category_scores=category_scores,
+                feedback=feedback,
+                winner=winner,
+                status="completed",
+            )
+            
+        except (ExternalServiceError, json.JSONDecodeError, AttributeError, KeyError) as exc:
+            raise ExternalServiceError("Gemini scoring failed.") from exc
+        except Exception as exc:
+            raise ExternalServiceError("Gemini request failed.") from exc
+
+    @staticmethod
+    def _parse_json_response(raw_text: str) -> Optional[Dict[str, Any]]:
+        """Parse JSON from Gemini response text."""
+        cleaned = (raw_text or "").strip()
+        if not cleaned:
+            return None
+        
+        # Remove markdown fences if present
+        cleaned = cleaned.strip("` \n")
+        if cleaned.startswith("{"):
+            json_text = cleaned
+        else:
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+            if start == -1 or end == -1:
+                return None
+            json_text = cleaned[start : end + 1]
+        
+        return json.loads(json_text)
 

@@ -26,18 +26,48 @@ from .base import (
 )
 
 # Import service classes
-from .gemini_api import AiService
+from .gemini_api import AiService, ExternalServiceError
 from .game_service import GameService
 from .lobby_service import LobbyService
 from .matchmaking_service import MatchmakingService
 
 # Create singleton instances
+import os
+from pathlib import Path
+
+# Load .env file if it exists (before reading environment variables)
+try:
+    from dotenv import load_dotenv
+    # Try loading from multiple locations (in order of preference)
+    # 1. Backend directory (backend/.env)
+    backend_dir = Path(__file__).parent.parent.parent
+    env_file = backend_dir / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=False)
+    
+    # 2. Project root (codejam25/.env)
+    project_root = backend_dir.parent
+    env_file = project_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=False)
+    
+    # 3. Current working directory
+    load_dotenv(override=False)
+except ImportError:
+    # python-dotenv not installed, skip .env loading
+    pass
+
 game_service = GameService()
 lobby_service = LobbyService()
 matchmaking_service = MatchmakingService(game_service)
-# Initialize AI service with Gemini API key from environment
-ai_service = AiService(game_service, api_key=os.getenv("GEMINI_API_KEY"))
 
+# Get Gemini API key from environment variables
+_gemini_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+if _gemini_api_key:
+    _gemini_api_key = _gemini_api_key.strip()
+    if not _gemini_api_key:
+        _gemini_api_key = None
+ai_service = AiService(game_service, api_key=_gemini_api_key)
 # Export all
 __all__ = [
     # Exceptions
@@ -45,6 +75,7 @@ __all__ = [
     "ValidationError",
     "NotFoundError",
     "ConflictError",
+    "ExternalServiceError",
     # Utilities
     "normalize_name",
     "generate_id",

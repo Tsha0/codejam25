@@ -13,6 +13,7 @@ from __future__ import annotations
 from .services import (
     AiService,
     ConflictError,
+    ExternalServiceError,
     GameService,
     LobbyService,
     MatchmakingService,
@@ -33,6 +34,7 @@ __all__ = [
     "ValidationError",
     "NotFoundError",
     "ConflictError",
+    "ExternalServiceError",
     # Utilities
     "normalize_name",
     "generate_id",

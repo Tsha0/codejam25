@@ -18,7 +18,23 @@ Lightweight Flask + Socket.IO API that powers lobbies, matchmaking, game orchest
 pip install -r /Users/jason/Code/codejam25/backend/requirements.txt
 ```
 
-3. Run the API locally:
+3. **Configure Gemini API Key** (Required for AI features):
+
+   Create a `.env` file in the `backend/` directory (or project root) with your Gemini API key:
+   
+   ```bash
+   # In backend/.env or .env (project root)
+   GEMINI_API_KEY=your-api-key-here
+   ```
+   
+   You can get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+   
+   Alternatively, you can set the environment variable directly:
+   ```bash
+   export GEMINI_API_KEY="your-api-key-here"
+   ```
+
+4. Run the API locally:
 
 ```bash
 cd /Users/jason/Code/codejam25/backend
@@ -35,6 +51,7 @@ Alternatively, run `python /Users/jason/Code/codejam25/backend/app.py` (defaults
 | `FLASK_ENV`     | `production`, `development`, etc.        | development   |
 | `FLASK_DEBUG`   | Force debug mode (`1` enables).          | auto (on unless production) |
 | `ALLOWED_ORIGINS` | Comma-separated list for CORS.         | `*`           |
+| `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Gemini API key for AI generation | **Required** for AI features |
 
 ## REST API
 
@@ -69,13 +86,6 @@ Socket namespace: `/ws/lobby/<lobbyId>` (events: `player_joined`, `player_left`,
 
 Socket namespace: `/ws/game/<gameId>` (events: `game_created`, `prompt_submitted`, `game_processing`, `game_completed`).
 
-### AI Generation (`/api/ai`)
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/ai/generate` | Handles per-player prompt submissions; when both prompts exist it transitions game → processing/completed. |
-| POST | `/ai/internal/resolve` | Internal retry hook to re-run generation/scoring if needed. |
-
-> When both prompts are on record, the AI subsystem marks the game `processing`, fabricates two HTML/CSS snippets, scores them, picks a winner, stores artifacts, and emits `game_completed`. If only one prompt exists the API responds with `"waiting"`.
 
 

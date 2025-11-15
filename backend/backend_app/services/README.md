@@ -262,6 +262,15 @@ For this demo/hackathon, current approach is sufficient.
 6. **ELO rating** - Skill-based matchmaking
 7. **AI integration** - Real generative AI instead of placeholders
 
+### AI Generation (`/api/ai`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/ai/generate` | Handles per-player prompt submissions; when both prompts exist it transitions game → processing/completed. |
+| POST | `/ai/internal/resolve` | Internal retry hook to re-run generation/scoring if needed. |
+
+> When both prompts are on record, the AI subsystem marks the game `processing`, fabricates two HTML/CSS snippets, scores them, picks a winner, stores artifacts, and emits `game_completed`. If only one prompt exists the API responds with `"waiting"`.
+
 ## Backward Compatibility
 
 The old `services.py` file re-exports everything from `services/` module, so existing code continues to work:

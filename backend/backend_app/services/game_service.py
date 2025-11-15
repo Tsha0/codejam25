@@ -129,13 +129,22 @@ class GameService:
         emit_game_event(game_id, "prompt_submitted", {"gameId": game_id, "player": canonical_player})
         return game
 
-    def record_player_output(self, game_id: str, player_name: str, output: str) -> Tuple[Game, str]:
-        """Record a player's generated output for a game.
+    def record_player_output(
+        self, 
+        game_id: str, 
+        player_name: str, 
+        output: str, 
+        *,
+        sections: Optional[Dict[str, str]] = None
+    ) -> tuple[Game, str]:
+        """Record a player's output for a game.
         
         Args:
             game_id: The game ID
             player_name: The player's name
-            output: The generated HTML/CSS/JS output
+
+            output: The generated output (HTML/CSS/JS combined)
+            sections: Optional dict with 'html', 'css', 'js' keys for separate sections
             
         Returns:
             Tuple of (updated game, canonical player name)
@@ -150,14 +159,55 @@ class GameService:
                 raise NotFoundError("Game not found.")
             canonical_player = self._canonical_player(game, player_name)
             game.outputs[canonical_player] = output
+            
+            # Store sections separately if provided
+            if sections:
+                game.output_sections[canonical_player] = {
+                    "html": sections.get("html", ""),
+                    "css": sections.get("css", ""),
+                    "js": sections.get("js", ""),
+                }
+            
             game = replace(
                 game,
                 outputs=dict(game.outputs),
+                output_sections=dict(game.output_sections),
                 updated_at=utc_now(),
             )
             self._games[game_id] = game
 
         emit_game_event(game_id, "output_generated", {"gameId": game_id, "player": canonical_player})
+        return game, canonical_player
+
+    def record_submission(self, game_id: str, player_name: str, image_path: str) -> tuple[Game, str]:
+        """Record a player's image submission for a game.
+        
+        Args:
+            game_id: The game ID
+            player_name: The player's name
+            image_path: Local path to the saved image
+            
+        Returns:
+            Tuple of (updated game, canonical player name)
+            
+        Raises:
+            NotFoundError: If game doesn't exist
+            ValidationError: If player is invalid
+        """
+        with self._lock:
+            game = self._games.get(game_id)
+            if not game:
+                raise NotFoundError("Game not found.")
+            canonical_player = self._canonical_player(game, player_name)
+            game.submissions[canonical_player] = image_path
+            game = replace(
+                game,
+                submissions=dict(game.submissions),
+                updated_at=utc_now(),
+            )
+            self._games[game_id] = game
+
+        emit_game_event(game_id, "submission_received", {"gameId": game_id, "player": canonical_player})
         return game, canonical_player
 
     def mark_processing(self, game_id: str) -> Game:
@@ -191,6 +241,8 @@ class GameService:
         *,
         outputs: Optional[Dict[str, str]] = None,
         scores: Optional[Dict[str, float]] = None,
+        category_scores: Optional[Dict[str, Dict[str, float]]] = None,
+        feedback: Optional[Dict[str, Dict[str, str]]] = None,
         winner: Optional[str] = None,
         status: str = "completed",
     ) -> Game:
@@ -199,7 +251,9 @@ class GameService:
         Args:
             game_id: The game ID
             outputs: Player outputs (HTML/CSS)
-            scores: Player scores
+            scores: Player total scores
+            category_scores: Player category scores (visual_design, adherence, etc.)
+            feedback: Player feedback for each category
             winner: Winner's name
             status: Final status
             
@@ -219,10 +273,19 @@ class GameService:
                 for player in outputs:
                     self._canonical_player(game, player)
                 game.outputs.update(outputs)
+                # Note: output_sections should be set via record_player_output, not here
             if scores:
                 for player in scores:
                     self._canonical_player(game, player)
                 game.scores.update(scores)
+            if category_scores:
+                for player in category_scores:
+                    self._canonical_player(game, player)
+                game.category_scores.update(category_scores)
+            if feedback:
+                for player in feedback:
+                    self._canonical_player(game, player)
+                game.feedback.update(feedback)
             if winner:
                 canonical = self._canonical_player(game, winner)
             else:
@@ -233,7 +296,11 @@ class GameService:
             game = replace(
                 game,
                 outputs=dict(game.outputs),
+                output_sections=dict(game.output_sections),
+                submissions=dict(game.submissions),
                 scores=dict(game.scores),
+                category_scores=dict(game.category_scores),
+                feedback=dict(game.feedback),
                 winner=canonical,
                 status=game.status,
                 updated_at=utc_now(),

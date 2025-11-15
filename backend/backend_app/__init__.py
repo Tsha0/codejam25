@@ -1,7 +1,24 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from flask import Flask
 from flask_cors import CORS
+
+# Load .env file if it exists (before reading environment variables)
+try:
+    from dotenv import load_dotenv
+    # Load from backend directory (backend/.env)
+    backend_dir = Path(__file__).parent.parent
+    env_file = backend_dir / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=False)
+    # Also try current working directory as fallback
+    load_dotenv(override=False)
+except ImportError:
+    # python-dotenv not installed, skip .env loading
+    pass
 
 from .config import Settings
 from .extensions import socketio
