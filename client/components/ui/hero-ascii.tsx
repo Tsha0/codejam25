@@ -1,11 +1,13 @@
 'use client';
 import Link from "next/link";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
 import { MockPreview } from '@/components/mock-preview';
 
 export default function Home() {
+  const [isLoaded, setIsLoaded] = useState(false);
+
   useEffect(() => {
     const embedScript = document.createElement('script');
     embedScript.type = 'text/javascript';
@@ -80,8 +82,14 @@ export default function Home() {
     setTimeout(hideBranding, 3000);
     setTimeout(hideBranding, 5000);
 
+    // Wait for everything to load before showing content
+    const loadTimeout = setTimeout(() => {
+      setIsLoaded(true);
+    }, 800);
+
     return () => {
       clearInterval(interval);
+      clearTimeout(loadTimeout);
       document.head.removeChild(embedScript);
       document.head.removeChild(style);
     };
@@ -90,7 +98,10 @@ export default function Home() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-black">
       {/* Vitruvian man animation - hidden on mobile */}
-      <div className="absolute inset-0 w-full h-full hidden lg:block">
+      <div 
+        className="absolute inset-0 w-full h-full hidden lg:block transition-opacity duration-700" 
+        style={{ opacity: isLoaded ? 1 : 0 }}
+      >
         <div 
           data-us-project="oppWN740DyWExbZkLm4s" 
           style={{ width: '100%', height: '100%', minHeight: '100vh' }}
@@ -99,10 +110,16 @@ export default function Home() {
       </div>
 
       {/* Mobile stars background */}
-      <div className="absolute inset-0 w-full h-full lg:hidden stars-bg"></div>
+      <div 
+        className="absolute inset-0 w-full h-full lg:hidden stars-bg transition-opacity duration-700"
+        style={{ opacity: isLoaded ? 1 : 0 }}
+      ></div>
 
       {/* Top Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 border-b border-white/20">
+      <div 
+        className="absolute top-0 left-0 right-0 z-20 border-b border-white/20 transition-opacity duration-700"
+        style={{ opacity: isLoaded ? 1 : 0 }}
+      >
         <div className="container mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="font-mono text-white text-xl lg:text-2xl font-bold tracking-widest italic transform -skew-x-12">
@@ -121,12 +138,27 @@ export default function Home() {
       </div>
 
       {/* Corner Frame Accents */}
-      <div className="absolute top-0 left-0 w-8 h-8 lg:w-12 lg:h-12 border-t-2 border-l-2 border-white/30 z-20"></div>
-      <div className="absolute top-0 right-0 w-8 h-8 lg:w-12 lg:h-12 border-t-2 border-r-2 border-white/30 z-20"></div>
-      <div className="absolute left-0 w-8 h-8 lg:w-12 lg:h-12 border-b-2 border-l-2 border-white/30 z-20" style={{ bottom: '5vh' }}></div>
-      <div className="absolute right-0 w-8 h-8 lg:w-12 lg:h-12 border-b-2 border-r-2 border-white/30 z-20" style={{ bottom: '5vh' }}></div>
+      <div 
+        className="absolute top-0 left-0 w-8 h-8 lg:w-12 lg:h-12 border-t-2 border-l-2 border-white/30 z-20 transition-opacity duration-700"
+        style={{ opacity: isLoaded ? 1 : 0 }}
+      ></div>
+      <div 
+        className="absolute top-0 right-0 w-8 h-8 lg:w-12 lg:h-12 border-t-2 border-r-2 border-white/30 z-20 transition-opacity duration-700"
+        style={{ opacity: isLoaded ? 1 : 0 }}
+      ></div>
+      <div 
+        className="absolute left-0 w-8 h-8 lg:w-12 lg:h-12 border-b-2 border-l-2 border-white/30 z-20 transition-opacity duration-700" 
+        style={{ bottom: '5vh', opacity: isLoaded ? 1 : 0 }}
+      ></div>
+      <div 
+        className="absolute right-0 w-8 h-8 lg:w-12 lg:h-12 border-b-2 border-r-2 border-white/30 z-20 transition-opacity duration-700" 
+        style={{ bottom: '5vh', opacity: isLoaded ? 1 : 0 }}
+      ></div>
 
-      <div className="relative z-10 flex min-h-screen items-center pt-16 lg:pt-0" style={{ marginTop: '5vh' }}>
+      <div 
+        className="relative z-10 flex min-h-screen items-center pt-16 lg:pt-0 transition-opacity duration-700" 
+        style={{ marginTop: '5vh', opacity: isLoaded ? 1 : 0 }}
+      >
         <div className="container mx-auto px-6 lg:px-16 lg:ml-[10%]">
           <div className="max-w-lg relative">
             {/* Top decorative line */}
@@ -211,7 +243,10 @@ export default function Home() {
       </div>
 
       {/* Bottom Footer */}
-      <div className="absolute left-0 right-0 z-20 border-t border-white/20 bg-black/40 backdrop-blur-sm" style={{ bottom: '5vh' }}>
+      <div 
+        className="absolute left-0 right-0 z-20 border-t border-white/20 bg-black/40 backdrop-blur-sm transition-opacity duration-700" 
+        style={{ bottom: '5vh', opacity: isLoaded ? 1 : 0 }}
+      >
         <div className="container mx-auto px-4 lg:px-8 py-2 lg:py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 lg:gap-6 text-[8px] lg:text-[9px] font-mono text-white/50">
             {/* <span className="hidden lg:inline">SYSTEM.ACTIVE</span> */}
