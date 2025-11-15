@@ -35,13 +35,15 @@ export default function GameplayPage() {
   const [translateX, setTranslateX] = useState(0);
   const [generatedHTML, setGeneratedHTML] = useState<string>("");
   const [generatedCSS, setGeneratedCSS] = useState<string>("");
+  const [generatedJS, setGeneratedJS] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState<"preview" | "html" | "css" | "js">("preview");
 
   // Fetch game data
   useEffect(() => {
     const fetchGameData = async () => {
       try {
-        console.log('🎮 Fetching game data for:', gameId);
+        console.log('Fetching game data for:', gameId);
         const response = await fetch(`${API_BASE_URL}/game/${gameId}`);
         
         if (!response.ok) {
@@ -49,11 +51,11 @@ export default function GameplayPage() {
         }
 
         const data = await response.json();
-        console.log('🎮 Game data received:', data);
+        console.log('Game data received:', data);
         setGameData(data.game);
         setLoading(false);
       } catch (err) {
-        console.error('❌ Error fetching game:', err);
+        console.error('Error fetching game:', err);
         setError(err instanceof Error ? err.message : "Failed to load game");
         setLoading(false);
       }
@@ -116,6 +118,7 @@ export default function GameplayPage() {
       if (data.sections) {
         setGeneratedHTML(data.sections.html || "");
         setGeneratedCSS(data.sections.css || "");
+        setGeneratedJS(data.sections.js || "");
       }
       
       setIsGenerating(false);
@@ -206,35 +209,102 @@ export default function GameplayPage() {
             </div>
           ) : generatedHTML ? (
             <div className="w-full h-full flex flex-col space-y-4 p-4">
-              <div className="text-white text-lg font-mono">
-                Your Generated Creation
+              {/* Header with tabs */}
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="text-white text-lg font-mono shrink-0">
+                  Your Generated Creation
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setActiveTab("preview")}
+                    className={`px-3 py-2 font-mono text-xs transition-colors ${
+                      activeTab === "preview"
+                        ? "bg-white text-black"
+                        : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("html")}
+                    className={`px-3 py-2 font-mono text-xs transition-colors ${
+                      activeTab === "html"
+                        ? "bg-white text-black"
+                        : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    HTML
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("css")}
+                    className={`px-3 py-2 font-mono text-xs transition-colors ${
+                      activeTab === "css"
+                        ? "bg-white text-black"
+                        : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    CSS
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("js")}
+                    className={`px-3 py-2 font-mono text-xs transition-colors ${
+                      activeTab === "js"
+                        ? "bg-white text-black"
+                        : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    JS
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 bg-white rounded-lg shadow-2xl overflow-auto border-4 border-slate-400/50">
-                <iframe
-                  srcDoc={`
-                    <!DOCTYPE html>
-                    <html>
-                      <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <style>
-                          body {
-                            margin: 0;
-                            padding: 16px;
-                            font-family: system-ui, -apple-system, sans-serif;
-                          }
-                          ${generatedCSS}
-                        </style>
-                      </head>
-                      <body>
-                        ${generatedHTML}
-                      </body>
-                    </html>
-                  `}
-                  className="w-full h-full border-0"
-                  sandbox="allow-scripts"
-                  title="Generated Output"
-                />
+
+              {/* Tab content */}
+              <div className="flex-1 bg-white rounded-lg shadow-2xl overflow-auto border-4 border-slate-400/50 min-h-0">
+                {activeTab === "preview" && (
+                  <iframe
+                    srcDoc={`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <meta charset="UTF-8">
+                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                          <style>
+                            body {
+                              margin: 0;
+                              padding: 16px;
+                              font-family: system-ui, -apple-system, sans-serif;
+                            }
+                            ${generatedCSS}
+                          </style>
+                        </head>
+                        <body>
+                          ${generatedHTML}
+                          <script>
+                            ${generatedJS}
+                          </script>
+                        </body>
+                      </html>
+                    `}
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts"
+                    title="Generated Output"
+                  />
+                )}
+                {activeTab === "html" && (
+                  <pre className="w-full h-full p-6 overflow-auto bg-slate-900 text-green-400 font-mono text-sm">
+                    <code>{generatedHTML}</code>
+                  </pre>
+                )}
+                {activeTab === "css" && (
+                  <pre className="w-full h-full p-6 overflow-auto bg-slate-900 text-blue-400 font-mono text-sm">
+                    <code>{generatedCSS}</code>
+                  </pre>
+                )}
+                {activeTab === "js" && (
+                  <pre className="w-full h-full p-6 overflow-auto bg-slate-900 text-yellow-400 font-mono text-sm">
+                    <code>{generatedJS}</code>
+                  </pre>
+                )}
               </div>
             </div>
           ) : (
