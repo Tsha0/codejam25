@@ -901,9 +901,18 @@ export default function ResultsPage() {
           <Button
             size="lg"
             onClick={() => {
-              // Clear old game ID before starting new game
+              // Clear all game-related state before starting new game
               if (typeof window !== 'undefined') {
                 localStorage.removeItem('current_game_id');
+                // Clear any other game-related state that might exist
+                const keysToRemove: string[] = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && (key.startsWith('game_') || key.includes('gameId'))) {
+                    keysToRemove.push(key);
+                  }
+                }
+                keysToRemove.forEach(key => localStorage.removeItem(key));
               }
               
               // Get authenticated username for next game
@@ -917,7 +926,9 @@ export default function ResultsPage() {
                   console.error("Failed to parse user from localStorage:", e);
                 }
               }
-              router.push(`/game/waiting?player=${encodeURIComponent(username)}`);
+              
+              // Use window.location.href to ensure a fresh navigation (no cached routes)
+              window.location.href = `/game/waiting?player=${encodeURIComponent(username)}`;
             }}
             className="relative overflow-hidden group"
             style={{
