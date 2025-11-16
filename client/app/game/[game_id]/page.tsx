@@ -511,7 +511,11 @@ export default function GameplayPage() {
                   {/* View Results button - appears when game is completed */}
                   {gameCompleted && (
                     <button
-                      onClick={() => router.push('/results')}
+                      onClick={() => {
+                        // Ensure game ID is stored for results page
+                        localStorage.setItem('current_game_id', gameId);
+                        router.push('/results');
+                      }}
                       className="px-4 py-2 font-mono text-sm bg-green-600 text-white hover:bg-green-700 transition-colors shadow-lg animate-pulse"
                     >
                       🏆 View Results
