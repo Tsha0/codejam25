@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
+
 interface ComponentProps {
   opponentID?: string;
   question?: string;
@@ -385,6 +386,8 @@ export const Component = ({
                     >
                       View Results
                     </button>
+                    
+                  
                   )}
                 </div>
               </div>
