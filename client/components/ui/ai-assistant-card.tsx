@@ -9,12 +9,20 @@ interface ComponentProps {
   opponentID?: string;
   question?: string;
   onSubmit?: (isSubmitted: boolean, promptText: string) => void;
+  submittedPrompts?: string[];
+  allowMultipleSubmissions?: boolean;
+  gameCompleted?: boolean;
+  onViewResults?: () => void;
 }
 
 export const Component = ({ 
   opponentID = "Loading...", 
   question = "Make an app that allows users to do e-transfer",
-  onSubmit
+  onSubmit,
+  submittedPrompts = [],
+  allowMultipleSubmissions = false,
+  gameCompleted = false,
+  onViewResults
 }: ComponentProps) => {
   const [timeLeft, setTimeLeft] = useState(30); // 30 seconds
   const [promptText, setPromptText] = useState("");
@@ -48,8 +56,8 @@ export const Component = ({
       timerRef.current = null;
     }
 
-    // Don't start timer if already submitted
-    if (isSubmitted) {
+    // Don't start timer if time is already up
+    if (timeLeft === 0) {
       return;
     }
 
@@ -58,10 +66,16 @@ export const Component = ({
       setTimeLeft((prev) => {
         const newTime = Math.max(0, prev - 1);
         
-        // Auto-submit when time reaches 0
-        if (newTime === 0 && !isSubmittedRef.current && onSubmit) {
+        // Auto-submit when time reaches 0 (only if first submission hasn't happened)
+        if (newTime === 0 && !isSubmittedRef.current && onSubmit && submittedPrompts.length === 0) {
           setIsSubmitted(true);
           onSubmit(true, promptTextRef.current);
+        }
+        
+        // Stop the timer when time reaches 0
+        if (newTime === 0 && timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
         }
         
         return newTime;
@@ -75,7 +89,8 @@ export const Component = ({
         timerRef.current = null;
       }
     };
-  }, [isSubmitted, onSubmit]); // Only depend on isSubmitted and onSubmit, not timeLeft
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question]); // Restart timer when question changes (new game starts)
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -84,15 +99,23 @@ export const Component = ({
   };
 
   const handleSubmit = () => {
-    if (!isSubmitted) {
-      setIsSubmitted(true);
-      if (onSubmit) {
+    // Allow submission if:
+    // 1. First submission (not submitted yet)
+    // 2. OR multiple submissions allowed and time hasn't run out
+    if (!isSubmitted || (allowMultipleSubmissions && timeLeft > 0 && promptText.trim())) {
+      if (!isSubmitted) {
+        setIsSubmitted(true);
+      }
+      if (onSubmit && promptText.trim()) {
         onSubmit(true, promptText);
+        // Clear the input after submission
+        setPromptText("");
       }
     }
   };
 
-  const isTimeUp = timeLeft === 0 || isSubmitted;
+  const isTimeUp = timeLeft === 0;
+  const hasFirstSubmission = submittedPrompts.length > 0;
   return (
     <Card className="flex h-full min-h-[800px] w-full max-w-[480px] flex-col gap-6 p-4 shadow-2xl bg-white/20 backdrop-blur-lg border-2 border-white/60">
       <div className="flex flex-row items-center justify-end p-0">
@@ -338,13 +361,9 @@ export const Component = ({
                 </p>
               </div>
 
-              <div className="flex items-start justify-start py-2 relative min-h-[100px]">
-                {/* Timer - fades out when submitted */}
-                <div 
-                  className={`flex flex-col items-start gap-2 absolute transition-opacity duration-500 ${
-                    isSubmitted ? 'opacity-0' : 'opacity-100'
-                  }`}
-                >
+              <div className="flex flex-col items-start justify-start py-2 space-y-4 min-h-[100px]">
+                {/* Timer - stays visible to show time remaining for modifications */}
+                <div className="flex flex-col items-start gap-2">
                   <span className="text-xs text-gray-700 uppercase tracking-wide">Time Remaining</span>
                   <div className={`text-5xl font-bold tabular-nums tracking-tight ${
                     timeLeft <= 10 ? 'text-red-600' : 'text-gray-900'
@@ -353,15 +372,20 @@ export const Component = ({
                   </div>
                 </div>
 
-                {/* "VibeCoding your Vibe" - fades in when submitted */}
-                <div 
-                  className={`flex flex-col items-start gap-2 absolute transition-opacity duration-1000 delay-300 ${
-                    isSubmitted ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                  }`}
-                >
-                  <div className="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400">
-                    VibeCoding your Vibe
+                {/* "Coding your vibe" and View Results button - positioned below timer */}
+                <div className="flex flex-col items-start gap-3 w-full">
+                  <div className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400">
+                    Coding your vibe
                   </div>
+                  {/* View Results button - appears when game is completed */}
+                  {gameCompleted && onViewResults && (
+                    <button
+                      onClick={onViewResults}
+                      className="h-8 px-4 text-sm font-medium bg-gray-700/70 hover:bg-gray-800/80 border border-white/50 text-white shadow-lg hover:shadow-xl transition-all relative z-10"
+                    >
+                      View Results
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -369,9 +393,24 @@ export const Component = ({
         </div>
 
         <div className="relative mt-auto flex-col rounded-md ring-1 ring-white/50 bg-white/25 backdrop-blur-md shadow-inner">
+          {/* Display submitted prompts above input */}
+          {hasFirstSubmission && submittedPrompts.length > 0 && (
+            <div className="border-b border-white/50 bg-white/20 backdrop-blur-sm p-3 max-h-[150px] overflow-y-auto relative z-0">
+              <h4 className="text-xs font-medium uppercase tracking-wide text-gray-800 mb-2">
+                Submitted Prompts ({submittedPrompts.length})
+              </h4>
+              <div className="space-y-1">
+                {submittedPrompts.map((prompt, index) => (
+                  <div key={index} className="text-xs text-gray-700 bg-white/30 rounded px-2 py-1">
+                    <span className="font-semibold">{index + 1}.</span> {prompt}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="relative">
             <Textarea
-              placeholder="Write your prompt here..."
+              placeholder={hasFirstSubmission ? "Write a modification prompt here..." : "Write your prompt here..."}
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               disabled={isTimeUp}
@@ -407,10 +446,14 @@ export const Component = ({
           <div className="flex items-center justify-end rounded-b-md border-t border-white/50 bg-white/30 backdrop-blur-sm px-3 py-2">
             <Button 
               className="h-8 px-4 text-sm font-medium bg-gray-700/70 hover:bg-gray-800/80 border border-white/50 text-white shadow-lg hover:shadow-xl transition-all"
-              disabled={isTimeUp}
+              disabled={isTimeUp || !promptText.trim()}
               onClick={handleSubmit}
             >
-              {isTimeUp ? "Prompt Submitted" : "Submit Prompt"}
+              {isTimeUp 
+                ? "Time's Up" 
+                : hasFirstSubmission 
+                  ? "Submit Modification" 
+                  : "Submit Prompt"}
             </Button>
           </div>
         </div>

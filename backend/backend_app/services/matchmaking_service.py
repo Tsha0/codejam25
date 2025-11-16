@@ -60,19 +60,66 @@ class MatchmakingService:
         """
         player = normalize_name(player_name, field="player_name")
         
+        # Check if player was already matched (handles polling after match)
+        # We need to check this outside the lock to avoid deadlock when calling get_game
+        cached_game = None
+        game_id = None
         with self._lock:
-            # Check if player was already matched (handles polling after match)
             if player in self._matched_players:
-                game = self._matched_players[player]
+                cached_game = self._matched_players[player]
+                game_id = cached_game.id
+        
+        # If player has a matched game, verify it's still valid
+        if cached_game and game_id:
+            # Always verify the game status from game_service (not cached object)
+            # This ensures we have the latest status even if game was completed
+            # Release lock before calling get_game to avoid deadlock
+            try:
+                current_game = self._game_service.get_game(game_id)
                 
-                # If game is completed, remove from matched players and continue
-                # This allows players to join matchmaking again after game ends
-                if game.status == "completed":
-                    print(f"🔄 Removing {player} from matched players (game completed)")
-                    del self._matched_players[player]
-                    # Continue to add player to queue below
+                # Check if game is still valid and pending
+                # A game is considered "done" if:
+                # 1. Status is not "pending" (completed, processing, etc.)
+                # 2. Game has scores (indicates completion)
+                # 3. Game has a winner (indicates completion)
+                is_game_done = (
+                    current_game.status != "pending" or
+                    bool(current_game.scores) or
+                    current_game.winner is not None
+                )
+                
+                if not is_game_done:
+                    # Game is still pending and valid, return it
+                    return {"status": "matched", "game": current_game}
                 else:
-                    return {"status": "matched", "game": game}
+                    # Game is done (completed, processing, or has results) - remove from matched players
+                    print(f"🔄 Removing {player} from matched players (game {game_id} status: {current_game.status}, has scores: {bool(current_game.scores)}, winner: {current_game.winner})")
+                    with self._lock:
+                        if player in self._matched_players:
+                            del self._matched_players[player]
+                        # Also remove the other player if they're in matched_players
+                        other_players = [p for p, g in self._matched_players.items() 
+                                        if g.id == game_id and p != player]
+                        for other_player in other_players:
+                            print(f"🔄 Also removing {other_player} from matched players (same game {game_id})")
+                            del self._matched_players[other_player]
+                    # Continue to add player to queue below
+                    
+            except Exception as e:
+                # If we can't get the game (e.g., it was deleted), remove from matched_players
+                print(f"⚠️ Error checking game {game_id} for player {player}: {e}. Removing from matched players.")
+                with self._lock:
+                    if player in self._matched_players:
+                        del self._matched_players[player]
+                    # Also remove the other player if they're in matched_players
+                    other_players = [p for p, g in self._matched_players.items() 
+                                    if g.id == game_id and p != player]
+                    for other_player in other_players:
+                        del self._matched_players[other_player]
+                # Continue to add player to queue below
+        
+        # Now continue with queue logic (need lock for queue operations)
+        with self._lock:
             
             # Check if player is already waiting in queue
             if player in self._queue:
@@ -169,23 +216,25 @@ class MatchmakingService:
         return 0
     
     def cleanup_completed_games(self) -> int:
-        """Remove completed games from matched players tracking.
+        """Remove non-pending games from matched players tracking.
         
         This is called periodically or when games complete to free up memory
-        and allow players to re-enter matchmaking.
+        and allow players to re-enter matchmaking. Removes all games that are
+        not in "pending" status (completed, processing, in progress, etc.).
         
         Returns:
-            Number of completed games cleaned up
+            Number of players cleaned up
         """
         with self._lock:
-            completed = [
+            # Find all players with non-pending games
+            to_remove = [
                 player for player, game in self._matched_players.items()
-                if game.status == "completed"
+                if game.status != "pending"
             ]
-            for player in completed:
+            for player in to_remove:
                 del self._matched_players[player]
             
-            if completed:
-                print(f"🧹 Cleaned up {len(completed)} players from completed games")
+            if to_remove:
+                print(f"🧹 Cleaned up {len(to_remove)} players from non-pending games")
             
-            return len(completed)
+            return len(to_remove)

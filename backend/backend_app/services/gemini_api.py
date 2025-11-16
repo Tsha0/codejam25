@@ -145,7 +145,7 @@ class AiService:
     def _generate_output(self, prompt: str) -> Dict[str, str]:
         """Generate HTML/CSS/JS output from prompt using Gemini API."""
         if not self._client:
-            raise ExternalServiceError("Gemini client is not configured.")
+            raise ExternalServiceError("Gemini client is not configured. Please set GEMINI_API_KEY or GOOGLE_API_KEY environment variable.")
 
         try:
             response = self._client.models.generate_content(
@@ -163,15 +163,19 @@ class AiService:
             if not sections:
                 raise ExternalServiceError("Gemini response missing required sections.")
             return sections
-        except (ExternalServiceError, json.JSONDecodeError, AttributeError) as exc:
-            raise ExternalServiceError("Gemini response missing required sections.") from exc
+        except ExternalServiceError:
+            # Re-raise ExternalServiceError as-is
+            raise
+        except (json.JSONDecodeError, AttributeError) as exc:
+            raise ExternalServiceError(f"Gemini response parsing failed: {str(exc)}") from exc
         except Exception as exc:  # pragma: no cover - safeguard
-            raise ExternalServiceError("Gemini request failed.") from exc
+            error_msg = str(exc) if str(exc) else type(exc).__name__
+            raise ExternalServiceError(f"Gemini request failed: {error_msg}") from exc
 
     def _modify_output(self, prompt: str, html: str, css: str, js: str) -> Dict[str, str]:
         """Modify existing HTML/CSS/JS code based on a prompt using Gemini API."""
         if not self._client:
-            raise ExternalServiceError("Gemini client is not configured.")
+            raise ExternalServiceError("Gemini client is not configured. Please set GEMINI_API_KEY or GOOGLE_API_KEY environment variable.")
 
         try:
             response = self._client.models.generate_content(
@@ -189,10 +193,14 @@ class AiService:
             if not sections:
                 raise ExternalServiceError("Gemini response missing required sections.")
             return sections
-        except (ExternalServiceError, json.JSONDecodeError, AttributeError) as exc:
-            raise ExternalServiceError("Gemini response missing required sections.") from exc
+        except ExternalServiceError:
+            # Re-raise ExternalServiceError as-is
+            raise
+        except (json.JSONDecodeError, AttributeError) as exc:
+            raise ExternalServiceError(f"Gemini response parsing failed: {str(exc)}") from exc
         except Exception as exc:  # pragma: no cover - safeguard
-            raise ExternalServiceError("Gemini request failed.") from exc
+            error_msg = str(exc) if str(exc) else type(exc).__name__
+            raise ExternalServiceError(f"Gemini request failed: {error_msg}") from exc
 
     @staticmethod
     def _combine_sections(sections: Dict[str, str]) -> str:
@@ -289,7 +297,24 @@ class AiService:
                 return None
             json_text = cleaned[start : end + 1]
 
-        parsed = json.loads(json_text)
+        try:
+            parsed = json.loads(json_text)
+        except json.JSONDecodeError as e:
+            # Log the problematic JSON for debugging
+            print(f"❌ JSON parsing error at line {e.lineno}, column {e.colno}: {e.msg}")
+            print(f"   Problematic JSON snippet (around error):")
+            lines = json_text.split('\n')
+            error_line_idx = e.lineno - 1
+            start_line = max(0, error_line_idx - 2)
+            end_line = min(len(lines), error_line_idx + 3)
+            for i in range(start_line, end_line):
+                marker = ">>> " if i == error_line_idx else "    "
+                print(f"{marker}Line {i+1}: {lines[i]}")
+            if e.colno:
+                print(f"   {' ' * (e.colno + 8)}^")
+            print(f"   Full JSON length: {len(json_text)} characters")
+            raise
+            
         for key in ("context", "html", "css", "js"):
             value = parsed.get(key)
             if not isinstance(value, str):
