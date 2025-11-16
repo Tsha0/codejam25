@@ -176,7 +176,13 @@ export default function DashboardPage() {
   const rankTier = getRankTierFromRating(mockUser.rating)
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div
+    className="min-h-screen bg-cover bg-center bg-no-repeat"
+    style={{
+      backgroundImage: "url('/flower.JPG')",
+    }}
+  >
+    <div className="backdrop-blur-sm bg-black/60 min-h-screen text-white">
       {/* Header */}
       <header className="border-b border-white/10 bg-black/95 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 lg:px-8 py-4">
@@ -462,6 +468,7 @@ export default function DashboardPage() {
 
         </Card>
       </div>
+    </div>
     </div>
   )
 }
