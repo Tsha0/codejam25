@@ -35,23 +35,24 @@ type RankTierName =
   | "Gold"
   | "Platinum"
   | "Diamond"
-  | "Champion"
+  | "VibeMaster"
 
 type RankTier = {
   name: RankTierName
   min: number   // inclusive
-  max: number   // inclusive
+  max: number   // inclusive (or Infinity for VibeMaster)
   percentLabel: string
   textClass: string
   badgeClass: string
+  glowClass?: string  // For VibeMaster rainbow glow
 }
 
 const rankTiers: RankTier[] = [
   {
     name: "Iron",
-    min: 1,
+    min: 0,
     max: 20,
-    percentLabel: "Bottom 20%",
+    percentLabel: "0-20 Elo",
     textClass: "text-slate-300",
     badgeClass: "bg-slate-900/70 border-slate-500/70",
   },
@@ -59,7 +60,7 @@ const rankTiers: RankTier[] = [
     name: "Bronze",
     min: 21,
     max: 40,
-    percentLabel: "Next 20%",
+    percentLabel: "21-40 Elo",
     textClass: "text-amber-500",
     badgeClass: "bg-amber-950/60 border-amber-700/70",
   },
@@ -67,46 +68,47 @@ const rankTiers: RankTier[] = [
     name: "Silver",
     min: 41,
     max: 60,
-    percentLabel: "Middle 20%",
+    percentLabel: "41-60 Elo",
     textClass: "text-slate-100",
     badgeClass: "bg-slate-800/70 border-slate-300/70",
   },
   {
     name: "Gold",
     min: 61,
-    max: 75,
-    percentLabel: "Top 40–25%",
+    max: 70,
+    percentLabel: "61-70 Elo",
     textClass: "text-yellow-300",
     badgeClass: "bg-yellow-950/60 border-yellow-500/70",
   },
   {
     name: "Platinum",
-    min: 76,
-    max: 85,
-    percentLabel: "Top 25–15%",
+    min: 71,
+    max: 80,
+    percentLabel: "71-80 Elo",
     textClass: "text-teal-300",
     badgeClass: "bg-teal-950/60 border-teal-500/70",
   },
   {
     name: "Diamond",
-    min: 86,
-    max: 95,
-    percentLabel: "Top 15–5%",
+    min: 81,
+    max: 89,
+    percentLabel: "81-89 Elo",
     textClass: "text-sky-300",
     badgeClass: "bg-sky-950/60 border-sky-500/70",
   },
   {
-    name: "Champion",
-    min: 96,
-    max: 100,
-    percentLabel: "Top 5%",
-    textClass: "text-fuchsia-300",
-    badgeClass: "bg-fuchsia-950/60 border-fuchsia-500/70",
+    name: "VibeMaster",
+    min: 90,
+    max: Infinity,
+    percentLabel: "90+ Elo",
+    textClass: "text-white font-bold",
+    badgeClass: "bg-gradient-to-r from-pink-500/70 via-purple-500/70 via-blue-500/70 to-green-500/70 border-2 border-purple-400/90 relative backdrop-blur-sm",
+    glowClass: "vibemaster-glow",
   },
 ]
 
-function getRankTierFromRating(rating: number): RankTier {
-  const clamped = Math.max(1, Math.min(100, rating))
+function getRankTierFromElo(elo: number): RankTier {
+  const clamped = Math.max(0, elo)
   return (
     rankTiers.find((tier) => clamped >= tier.min && clamped <= tier.max) ??
     rankTiers[0]
@@ -188,11 +190,13 @@ interface UserData {
   email: string
   username: string
   avatar?: string
+  elo?: number
 }
 
 interface GameData {
   id: string
   opponent: string
+  opponentElo?: number
   result: "win" | "loss"
   duration?: number
   completedAt?: string
@@ -293,9 +297,9 @@ export default function DashboardPage() {
   const totalGames = stats?.total || 0
   const winningPercentage = stats?.winRate || 0
   
-  // Calculate rating based on win rate (scale 1-100)
-  const rating = Math.min(100, Math.max(1, Math.round(50 + (winningPercentage - 50) * 0.8)))
-  const rankTier = getRankTierFromRating(rating)
+  // Use actual elo from database
+  const elo = user.elo || 10
+  const rankTier = getRankTierFromElo(elo)
   
   // Calculate time prompting: duels completed * 30 seconds
   const totalSeconds = totalGames * 30
@@ -338,7 +342,7 @@ export default function DashboardPage() {
     return {
       id: game.id,
       opponent: game.opponent,
-      opponentRating: Math.floor(50 + Math.random() * 40), // Mock rating for now
+      opponentElo: game.opponentElo || 10,
       result: game.result,
       date: dateStr,
       duration: durationStr,
@@ -424,10 +428,11 @@ export default function DashboardPage() {
             "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-mono",
             rankTier.badgeClass,
             rankTier.textClass,
+            rankTier.glowClass || "",
           ].join(" ")}
         >
           <span className="font-semibold">{rankTier.name.toUpperCase()}</span>
-          <span className="opacity-80">| Rating {rating}/100</span>
+          <span className="opacity-80">| Elo {elo}</span>
           <span className="opacity-60">({rankTier.percentLabel})</span>
         </span>
       </div>
@@ -598,7 +603,7 @@ export default function DashboardPage() {
       </div>
     ) : (
       formattedGames.map((game) => {
-      const opponentTier = getRankTierFromRating(game.opponentRating)
+      const opponentTier = getRankTierFromElo(game.opponentElo)
 
       return (
         <div
@@ -623,13 +628,14 @@ export default function DashboardPage() {
                     "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-mono",
                     opponentTier.badgeClass,
                     opponentTier.textClass,
+                    opponentTier.glowClass || "",
                   ].join(" ")}
                 >
                   <span className="font-semibold">
                     {opponentTier.name.toUpperCase()}
                   </span>
                   <span className="opacity-70">
-                    {game.opponentRating}/100
+                    {game.opponentElo}
                   </span>
                 </span>
               </div>

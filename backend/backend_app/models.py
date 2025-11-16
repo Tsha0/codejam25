@@ -18,6 +18,7 @@ class User:
         avatar: Optional[str] = None,
         googleId: Optional[str] = None,
         githubId: Optional[str] = None,
+        elo: int = 10,
         createdAt: Optional[datetime] = None,
         updatedAt: Optional[datetime] = None,
         lastLoginAt: Optional[datetime] = None,
@@ -30,6 +31,7 @@ class User:
         self.avatar = avatar
         self.googleId = googleId
         self.githubId = githubId
+        self.elo = elo
         self.createdAt = createdAt or datetime.now(timezone.utc)
         self.updatedAt = updatedAt or datetime.now(timezone.utc)
         self.lastLoginAt = lastLoginAt or datetime.now(timezone.utc)
@@ -42,6 +44,7 @@ class User:
             "name": self.name,
             "username": self.username,
             "avatar": self.avatar,
+            "elo": self.elo,
             "createdAt": self.createdAt.isoformat() if self.createdAt else None,
             "updatedAt": self.updatedAt.isoformat() if self.updatedAt else None,
             "lastLoginAt": self.lastLoginAt.isoformat() if self.lastLoginAt else None,
@@ -65,6 +68,7 @@ class User:
             "password": self.password,
             "name": self.name,
             "username": self.username,
+            "elo": self.elo,
             "createdAt": self.createdAt,
             "updatedAt": self.updatedAt,
             "lastLoginAt": self.lastLoginAt,
@@ -94,6 +98,7 @@ class User:
             avatar=doc.get("avatar"),
             googleId=doc.get("googleId"),
             githubId=doc.get("githubId"),
+            elo=doc.get("elo", 10),  # Default to 10 for existing users without elo
             createdAt=doc.get("createdAt"),
             updatedAt=doc.get("updatedAt"),
             lastLoginAt=doc.get("lastLoginAt"),

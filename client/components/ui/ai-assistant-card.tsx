@@ -20,34 +20,62 @@ export const Component = ({
   const [promptText, setPromptText] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const promptTextRef = useRef(promptText);
+  const isSubmittedRef = useRef(isSubmitted);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Keep ref in sync with promptText state
+  // Keep refs in sync with state
   useEffect(() => {
     promptTextRef.current = promptText;
   }, [promptText]);
+
+  useEffect(() => {
+    isSubmittedRef.current = isSubmitted;
+  }, [isSubmitted]);
 
   // Reset timer and states when a new game starts (question changes)
   useEffect(() => {
     setTimeLeft(30);
     setPromptText("");
     setIsSubmitted(false);
+    isSubmittedRef.current = false;
   }, [question]);
 
+  // Timer effect - uses refs to avoid dependency issues
   useEffect(() => {
-    if (isSubmitted || timeLeft <= 0) {
-      if (timeLeft <= 0 && onSubmit && !isSubmitted) {
-        setIsSubmitted(true);
-        onSubmit(true, promptTextRef.current);
-      }
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Don't start timer if already submitted
+    if (isSubmitted) {
       return;
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
+    // Start the timer
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        const newTime = Math.max(0, prev - 1);
+        
+        // Auto-submit when time reaches 0
+        if (newTime === 0 && !isSubmittedRef.current && onSubmit) {
+          setIsSubmitted(true);
+          onSubmit(true, promptTextRef.current);
+        }
+        
+        return newTime;
+      });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [timeLeft, onSubmit, isSubmitted]);
+    // Cleanup function
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isSubmitted, onSubmit]); // Only depend on isSubmitted and onSubmit, not timeLeft
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

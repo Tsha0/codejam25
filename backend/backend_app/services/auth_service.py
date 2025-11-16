@@ -55,12 +55,13 @@ class AuthService:
         # Hash password
         hashed_password = self._hash_password(password)
         
-        # Create user
+        # Create user with initial elo rating of 10
         user = User(
             email=email,
             password=hashed_password,
             name=name,
             username=username,
+            elo=10,
         )
         
         # Save to database
