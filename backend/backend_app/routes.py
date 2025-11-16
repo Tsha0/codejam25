@@ -287,6 +287,32 @@ def ai_submit():
     return jsonify(response), status_code
 
 
+@api_bp.route("/ai/modify", methods=["POST"])
+def ai_modify():
+    """Modify existing HTML/CSS/JS code based on a new prompt."""
+    data = _payload()
+    prompt = data.get("prompt")
+    html = data.get("html", "")
+    css = data.get("css", "")
+    js = data.get("js", "")
+    
+    if not prompt:
+        return jsonify({"error": "prompt is required."}), HTTPStatus.BAD_REQUEST
+    
+    try:
+        sections = ai_service.modify_code(prompt, html, css, js)
+        return jsonify({
+            "html": sections.get("html", ""),
+            "css": sections.get("css", ""),
+            "js": sections.get("js", ""),
+            "context": sections.get("context", ""),
+        }), HTTPStatus.OK
+    except ExternalServiceError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.SERVICE_UNAVAILABLE
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+
 
 
 # Prompt endpoints --------------------------------------------------------
