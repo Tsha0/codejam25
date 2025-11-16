@@ -5,8 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import {
   ChevronRight,
-  LogOut,
-  Settings,
   User,
   Clock
 } from "lucide-react"
@@ -174,6 +172,18 @@ const mockUser = {
 export default function DashboardPage() {
   const { stats, monthlyActivity, performance } = mockUser as any
   const rankTier = getRankTierFromRating(mockUser.rating)
+  
+  // Calculate winning percentage
+  const totalGames = mockUser.games.length
+  const wins = mockUser.games.filter((game: any) => game.result === "win").length
+  const winningPercentage = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0
+  
+  // Calculate time prompting: duels completed * 30 seconds
+  const totalSeconds = stats.DuelsCompleted * 30
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const timePrompting = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 
   return (
     <div
@@ -203,12 +213,6 @@ export default function DashboardPage() {
                   FIND GAME
                 </Button>
               </Link>
-              <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
-                <LogOut className="w-5 h-5" />
-              </Button>
             </div>
           </div>
         </div>
@@ -251,20 +255,6 @@ export default function DashboardPage() {
           <Card className="bg-white/5 border-white/10">
             <CardHeader className="pb-2">
               <CardDescription className="font-mono text-xs uppercase tracking-wide text-white/60">
-                Duels started
-              </CardDescription>
-              <CardTitle className="font-mono text-3xl font-bold text-cyan-300">
-                {stats.DuelsStarted.toLocaleString()}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs font-mono text-white/50">
-              Total sessions you’ve launched.
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/5 border-white/10">
-            <CardHeader className="pb-2">
-              <CardDescription className="font-mono text-xs uppercase tracking-wide text-white/60">
                 Duels completed
               </CardDescription>
               <CardTitle className="font-mono text-3xl font-bold text-emerald-300">
@@ -279,15 +269,29 @@ export default function DashboardPage() {
           <Card className="bg-white/5 border-white/10">
             <CardHeader className="pb-2">
               <CardDescription className="font-mono text-xs uppercase tracking-wide text-white/60">
-                Time typing
+                Winning percentage
+              </CardDescription>
+              <CardTitle className="font-mono text-3xl font-bold text-cyan-300">
+                {winningPercentage}%
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs font-mono text-white/50">
+              Percentage of matches won.
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="pb-2">
+              <CardDescription className="font-mono text-xs uppercase tracking-wide text-white/60">
+                Time Prompting
               </CardDescription>
               <CardTitle className="font-mono text-3xl font-bold text-indigo-300">
-                {stats.timeTyping}
+                {timePrompting}
               </CardTitle>
             </CardHeader>
             <CardContent className="text-xs font-mono text-white/50 flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Active time spent in Duels.
+              Total time spent prompting in completed duels.
             </CardContent>
           </Card>
         </div>
@@ -297,7 +301,7 @@ export default function DashboardPage() {
           {/* Last 12 months activity (bar chart) */}
           <Card className="bg-white/5 border-white/10 xl:col-span-1">
             <CardHeader>
-              <CardTitle className="font-mono text-sm tracking-wide">
+              <CardTitle className="font-mono text-sm tracking-wide text-white">
                 LAST 12 MONTHS
               </CardTitle>
               <CardDescription className="font-mono text-xs">
@@ -330,7 +334,7 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-mono text-sm tracking-wide">
+                  <CardTitle className="font-mono text-sm tracking-wide text-white">
                     SCORE VS Duels DONE
                   </CardTitle>
                   <CardDescription className="font-mono text-xs">
@@ -395,7 +399,7 @@ export default function DashboardPage() {
         {/* Game History */}
         <Card className="bg-white/5 border-white/20">
           <CardHeader>
-            <CardTitle className="font-mono">MATCH HISTORY</CardTitle>
+            <CardTitle className="font-mono text-white">MATCH HISTORY</CardTitle>
             <CardDescription className="font-mono">
               All your recent duels
             </CardDescription>
