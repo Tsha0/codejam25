@@ -1,4 +1,4 @@
-# CodeJam 2025 - Creative Battles
+# CodeJam 2025 - Prompt Duels
 
 A real-time competitive coding game where players compete by creating web designs based on prompts.
 
