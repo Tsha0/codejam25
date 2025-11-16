@@ -1,14 +1,16 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   ChevronRight,
   User,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react"
-
 import {
   ResponsiveContainer,
   LineChart,
@@ -218,6 +220,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
+
       <div className="container mx-auto px-4 lg:px-8 py-8 space-y-8">
       {/* User Profile Section */}
 <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -405,6 +408,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+
   <div className="space-y-2">
     {mockUser.games.map((game) => {
       const opponentTier = getRankTierFromRating(game.opponentRating)
@@ -469,7 +473,6 @@ export default function DashboardPage() {
     })}
   </div>
 </CardContent>
-
         </Card>
       </div>
     </div>

@@ -21,7 +21,7 @@ except ImportError:
     pass
 
 from .config import Settings
-from .extensions import socketio
+from .extensions import socketio, init_mongodb
 
 
 def create_app() -> Flask:
@@ -40,15 +40,30 @@ def create_app() -> Flask:
     )
     CORS(
         app,
-        resources={r"/api/*": {"origins": cors_origins}},
+        resources={
+            r"/api/*": {"origins": cors_origins},
+            r"/auth/*": {"origins": cors_origins}
+        },
         supports_credentials=True,
     )
 
     socketio.init_app(app, cors_allowed_origins=cors_origins)
 
+    # Initialize MongoDB
+    try:
+        init_mongodb()
+    except Exception as e:
+        print(f"Warning: MongoDB initialization failed: {e}")
+        print("Auth and dashboard features will not be available.")
+
+    # Register blueprints
     from .routes import api_bp
+    from .auth_routes import auth_bp
+    from .dashboard_routes import dashboard_bp
 
     app.register_blueprint(api_bp, url_prefix="/api")
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp)
 
     return app
 

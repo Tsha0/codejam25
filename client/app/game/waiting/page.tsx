@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TypingAnimation } from "@/components/ui/typing-animation";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+// Note: Auth routes use /auth, but game/matchmaking routes use /api
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = `${API_URL}/api`;
 
 // Extend Window interface for UnicornStudio
 declare global {
