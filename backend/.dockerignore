@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.venv
+.env
+
+# Git
+.git
+.gitignore
+
+# Railway
+.railway/
