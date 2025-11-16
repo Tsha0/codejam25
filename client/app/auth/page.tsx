@@ -1,36 +1,70 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
     
-    // TODO: Implement MongoDB authentication logic when backend is ready
     const formData = new FormData(e.currentTarget)
-    const data = {
-      email: formData.get("email"),
-      password: formData.get("password"),
-      ...(isSignUp && {
-        name: formData.get("name"),
-        confirmPassword: formData.get("confirmPassword")
-      })
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+    const name = formData.get("name") as string
+    const confirmPassword = formData.get("confirmPassword") as string
+    
+    // Validate passwords match for signup
+    if (isSignUp && password !== confirmPassword) {
+      setError("Passwords do not match")
+      setIsLoading(false)
+      return
     }
     
-    console.log("Auth data:", data)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setIsLoading(false)
+    try {
+      const endpoint = isSignUp ? "/auth/signup" : "/auth/login"
+      const body = isSignUp 
+        ? { email, password, name, username: name }
+        : { email, password }
+      
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Authentication failed")
+      }
+      
+      // Save token to localStorage
+      localStorage.setItem("token", data.token)
+      localStorage.setItem("user", JSON.stringify(data.user))
+      
+      // Redirect to dashboard
+      router.push("/dashboard")
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An error occurred"
+      setError(errorMessage)
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -66,6 +100,13 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 rounded-md bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
+                {error}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name Field (Sign Up Only) */}
               {isSignUp && (

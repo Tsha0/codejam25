@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,26 +10,119 @@ import {
   LogOut,
   Settings,
   User,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react"
 
-// Mock user data - will be fetched from MongoDB
-const mockUser = {
-  name: "CodeWarrior",
-  email: "warrior@example.com",
-  games: [
-    { id: "1", opponent: "VibeKing", result: "win", date: "2 hours ago", duration: "12:34" },
-    { id: "2", opponent: "CodeNinja", result: "win", date: "5 hours ago", duration: "15:22" },
-    { id: "3", opponent: "HackerPro", result: "loss", date: "1 day ago", duration: "18:45" },
-    { id: "4", opponent: "DevMaster", result: "win", date: "1 day ago", duration: "11:20" },
-    { id: "5", opponent: "ByteBlaster", result: "win", date: "2 days ago", duration: "14:10" },
-    { id: "6", opponent: "TechWizard", result: "loss", date: "3 days ago", duration: "16:30" },
-    { id: "7", opponent: "CodeMaster", result: "win", date: "3 days ago", duration: "10:15" },
-    { id: "8", opponent: "DevNinja", result: "win", date: "4 days ago", duration: "13:45" }
-  ]
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+interface Game {
+  id: string
+  opponent: string
+  result: "win" | "loss"
+  duration: number
+  completedAt: string
+}
+
+interface DashboardData {
+  user: {
+    id: string
+    name: string
+    email: string
+    username: string
+    avatar?: string
+  }
+  games: Game[]
 }
 
 export default function DashboardPage() {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      
+      if (!token) {
+        router.push("/auth")
+        return
+      }
+
+      const response = await fetch(`${API_URL}/api/dashboard`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          router.push("/auth")
+          return
+        }
+        throw new Error("Failed to fetch dashboard data")
+      }
+
+      const data = await response.json()
+      setDashboardData(data)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An error occurred"
+      setError(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
+    router.push("/auth")
+  }
+
+  const formatDuration = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${minutes}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const formatDate = (isoDate: string): string => {
+    const date = new Date(isoDate)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffHours < 1) return "Just now"
+    if (diffHours < 24) return `${diffHours} hours ago`
+    if (diffDays === 1) return "1 day ago"
+    return `${diffDays} days ago`
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error || !dashboardData) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error || "Failed to load dashboard"}</p>
+          <Button onClick={() => router.push("/auth")}>Go to Login</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -54,7 +149,12 @@ export default function DashboardPage() {
               <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
                 <Settings className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-white/60 hover:text-white hover:bg-white/10"
+                onClick={handleLogout}
+              >
                 <LogOut className="w-5 h-5" />
               </Button>
             </div>
@@ -71,9 +171,9 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold font-mono tracking-wider mb-1">
-                {mockUser.name}
+                {dashboardData.user.name}
               </h1>
-              <p className="text-sm text-white/60 font-mono">{mockUser.email}</p>
+              <p className="text-sm text-white/60 font-mono">{dashboardData.user.email}</p>
             </div>
           </div>
         </div>
@@ -85,37 +185,46 @@ export default function DashboardPage() {
             <CardDescription className="font-mono">All your games</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {mockUser.games.map((game) => (
-                <div
-                  key={game.id}
-                  className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded hover:bg-white/10 transition-all duration-200"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${
-                      game.result === "win" ? "bg-green-400" : "bg-red-400"
-                    }`} />
-                    <div>
-                      <div className="font-mono font-semibold text-white">vs {game.opponent}</div>
-                      <div className="text-sm text-white/60 font-mono">{game.date}</div>
+            {dashboardData.games.length === 0 ? (
+              <div className="text-center py-12 text-white/60">
+                <p className="font-mono">No games played yet</p>
+                <p className="text-sm mt-2">Start your first match to see your history here</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {dashboardData.games.map((game) => (
+                  <div
+                    key={game.id}
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded hover:bg-white/10 transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-3 h-3 rounded-full ${
+                        game.result === "win" ? "bg-green-400" : "bg-red-400"
+                      }`} />
+                      <div>
+                        <div className="font-mono font-semibold text-white">vs {game.opponent}</div>
+                        <div className="text-sm text-white/60 font-mono">{formatDate(game.completedAt)}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      {game.duration && (
+                        <div className="text-sm text-white/60 font-mono flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDuration(game.duration)}
+                        </div>
+                      )}
+                      <div className={`px-4 py-1 rounded text-sm font-mono font-semibold ${
+                        game.result === "win" 
+                          ? "bg-green-400/20 text-green-400 border border-green-400/30" 
+                          : "bg-red-400/20 text-red-400 border border-red-400/30"
+                      }`}>
+                        {game.result.toUpperCase()}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-sm text-white/60 font-mono flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {game.duration}
-                    </div>
-                    <div className={`px-4 py-1 rounded text-sm font-mono font-semibold ${
-                      game.result === "win" 
-                        ? "bg-green-400/20 text-green-400 border border-green-400/30" 
-                        : "bg-red-400/20 text-red-400 border border-red-400/30"
-                    }`}>
-                      {game.result.toUpperCase()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

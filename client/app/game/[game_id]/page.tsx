@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Component } from "@/components/ui/ai-assistant-card";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+// Note: Auth routes use /auth, but game/matchmaking routes use /api
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = `${API_URL}/api`;
 
 interface GameData {
   id: string;
@@ -115,11 +117,17 @@ export default function GameplayPage() {
       const data = await response.json();
       console.log('✅ Received generated output:', data);
 
-      if (data.sections) {
-        setGeneratedHTML(data.sections.html || "");
-        setGeneratedCSS(data.sections.css || "");
-        setGeneratedJS(data.sections.js || "");
+      // The output is now nested in game.outputs[playerName]
+      // Each player has their own html, css, js properties
+      if (data.game && data.game.outputs && playerName) {
+        const playerOutput = data.game.outputs[playerName];
+        if (playerOutput) {
+          setGeneratedHTML(playerOutput.html || "");
+          setGeneratedCSS(playerOutput.css || "");
+          setGeneratedJS(playerOutput.js || "");
+        }
       }
+      
       
       setIsGenerating(false);
     } catch (err) {
