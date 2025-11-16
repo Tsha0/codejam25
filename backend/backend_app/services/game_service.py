@@ -179,13 +179,13 @@ class GameService:
         emit_game_event(game_id, "output_generated", {"gameId": game_id, "player": canonical_player})
         return game, canonical_player
 
-    def record_submission(self, game_id: str, player_name: str, image_path: str) -> tuple[Game, str]:
+    def record_submission(self, game_id: str, player_name: str, submission_id: str) -> tuple[Game, str]:
         """Record a player's image submission for a game.
         
         Args:
             game_id: The game ID
             player_name: The player's name
-            image_path: Local path to the saved image
+            submission_id: MongoDB document ID for the submission
             
         Returns:
             Tuple of (updated game, canonical player name)
@@ -199,7 +199,7 @@ class GameService:
             if not game:
                 raise NotFoundError("Game not found.")
             canonical_player = self._canonical_player(game, player_name)
-            game.submissions[canonical_player] = image_path
+            game.submissions[canonical_player] = submission_id
             game = replace(
                 game,
                 submissions=dict(game.submissions),

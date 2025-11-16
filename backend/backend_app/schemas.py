@@ -53,7 +53,7 @@ class Game:
     prompts: Dict[str, str] = field(default_factory=dict)
     outputs: Dict[str, str] = field(default_factory=dict)
     output_sections: Dict[str, Dict[str, str]] = field(default_factory=dict)  # Player -> {html, css, js}
-    submissions: Dict[str, str] = field(default_factory=dict)  # Player -> local image path
+    submissions: Dict[str, str] = field(default_factory=dict)  # Player -> MongoDB submission document ID
     scores: Dict[str, float] = field(default_factory=dict)  # Player -> total score
     category_scores: Dict[str, Dict[str, float]] = field(default_factory=dict)  # Player -> {category: score}
     feedback: Dict[str, Dict[str, str]] = field(default_factory=dict)  # Player -> {category: feedback}
