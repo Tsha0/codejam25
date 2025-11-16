@@ -38,6 +38,7 @@ class DashboardService:
                 "email": user.email,
                 "username": user.username,
                 "avatar": user.avatar,
+                "elo": user.elo,
             },
             "games": games,
         }
@@ -80,6 +81,13 @@ class DashboardService:
                             "$player1.username"
                         ]
                     },
+                    "opponentId": {
+                        "$cond": [
+                            {"$eq": ["$player1.userId", user_oid]},
+                            "$player2.userId",
+                            "$player1.userId"
+                        ]
+                    },
                     "result": {
                         "$cond": [
                             {"$eq": ["$player1.userId", user_oid]},
@@ -95,9 +103,17 @@ class DashboardService:
         
         result = []
         for game in games:
+            # Get opponent's elo
+            opponent_elo = 10  # Default
+            if game.get("opponentId"):
+                opponent_doc = db.users.find_one({"_id": game["opponentId"]})
+                if opponent_doc:
+                    opponent_elo = opponent_doc.get("elo", 10)
+            
             result.append({
                 "id": str(game["_id"]),
                 "opponent": game["opponent"],
+                "opponentElo": opponent_elo,
                 "result": game["result"],
                 "duration": game.get("duration"),
                 "completedAt": game["completedAt"].isoformat() if game.get("completedAt") else None,
@@ -169,6 +185,43 @@ class DashboardService:
         
         game_oid = ObjectId(game_id)
         
+        # Fetch game to get player IDs
+        game_doc = db.games.find_one({"_id": game_oid})
+        if not game_doc:
+            raise ValueError("Game not found")
+        
+        player1_id = game_doc["player1"]["userId"]
+        player2_id = game_doc["player2"]["userId"]
+        
+        # Update elo ratings
+        # Get current elo ratings
+        player1_doc = db.users.find_one({"_id": player1_id})
+        player2_doc = db.users.find_one({"_id": player2_id})
+        
+        player1_elo = player1_doc.get("elo", 10) if player1_doc else 10
+        player2_elo = player2_doc.get("elo", 10) if player2_doc else 10
+        
+        # Update elo: +5 for win, -5 for loss (minimum 0)
+        if player1_result == "win":
+            player1_elo = max(0, player1_elo + 5)
+        else:  # loss
+            player1_elo = max(0, player1_elo - 5)
+        
+        if player2_result == "win":
+            player2_elo = max(0, player2_elo + 5)
+        else:  # loss
+            player2_elo = max(0, player2_elo - 5)
+        
+        # Update user elo ratings
+        db.users.update_one(
+            {"_id": player1_id},
+            {"$set": {"elo": player1_elo, "updatedAt": datetime.now(timezone.utc)}}
+        )
+        db.users.update_one(
+            {"_id": player2_id},
+            {"$set": {"elo": player2_elo, "updatedAt": datetime.now(timezone.utc)}}
+        )
+        
         # Update game
         db.games.update_one(
             {"_id": game_oid},
@@ -185,11 +238,11 @@ class DashboardService:
         )
         
         # Fetch and return updated game
-        game_doc = db.games.find_one({"_id": game_oid})
-        if not game_doc:
+        updated_game_doc = db.games.find_one({"_id": game_oid})
+        if not updated_game_doc:
             raise ValueError("Game not found")
         
-        return Game.from_mongo(game_doc)
+        return Game.from_mongo(updated_game_doc)
     
     def get_game(self, game_id: str) -> Optional[Game]:
         """Get game by ID."""

@@ -51,6 +51,11 @@ export default function WaitingPage() {
   useEffect(() => {
     console.log('🔵 useEffect running for player:', playerName);
     
+    // Clear any old game ID from localStorage when entering matchmaking
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('current_game_id');
+    }
+    
     let pollInterval: NodeJS.Timeout | null = null;
     let isActive = true;
 
@@ -76,9 +81,13 @@ export default function WaitingPage() {
 
         if (data.status === "matched" && data.game) {
           setStatus("matched");
-          // Redirect to game page with game ID
+          // Store the new game ID and redirect to game page
+          if (typeof window !== 'undefined' && data.game.id) {
+            localStorage.setItem('current_game_id', data.game.id);
+          }
+          // Use window.location for fresh navigation to new game
           setTimeout(() => {
-            router.push(`/game/${data.game.id}?player=${encodeURIComponent(playerName)}`);
+            window.location.href = `/game/${data.game.id}?player=${encodeURIComponent(playerName)}`;
           }, 1000);
         } else if (data.status === "queued") {
           setStatus("queued");
@@ -115,9 +124,13 @@ export default function WaitingPage() {
           if (data.status === "matched" && data.game) {
             setStatus("matched");
             if (pollInterval) clearInterval(pollInterval);
-            // Redirect to game page with game ID
+            // Store the new game ID and redirect to game page
+            if (typeof window !== 'undefined' && data.game.id) {
+              localStorage.setItem('current_game_id', data.game.id);
+            }
+            // Use window.location for fresh navigation to new game
             setTimeout(() => {
-              router.push(`/game/${data.game.id}?player=${encodeURIComponent(playerName)}`);
+              window.location.href = `/game/${data.game.id}?player=${encodeURIComponent(playerName)}`;
             }, 1000);
           } else if (data.status === "queued") {
             setPosition(data.position || 1);

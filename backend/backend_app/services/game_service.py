@@ -421,6 +421,32 @@ class GameService:
                 player1_result = "loss"
                 player2_result = "loss"
             
+            # Update elo ratings
+            player1_elo = user1_doc.get("elo", 10)
+            player2_elo = user2_doc.get("elo", 10)
+            
+            # Update elo: +5 for win, -5 for loss (minimum 0)
+            if player1_result == "win":
+                player1_elo = max(0, player1_elo + 5)
+            else:  # loss
+                player1_elo = max(0, player1_elo - 5)
+            
+            if player2_result == "win":
+                player2_elo = max(0, player2_elo + 5)
+            else:  # loss
+                player2_elo = max(0, player2_elo - 5)
+            
+            # Update user elo ratings in database
+            db.users.update_one(
+                {"_id": user1_doc["_id"]},
+                {"$set": {"elo": player1_elo, "updatedAt": datetime.now(timezone.utc)}}
+            )
+            db.users.update_one(
+                {"_id": user2_doc["_id"]},
+                {"$set": {"elo": player2_elo, "updatedAt": datetime.now(timezone.utc)}}
+            )
+            print(f"   - Updated elo: {player1_name}={player1_elo}, {player2_name}={player2_elo}")
+            
             # Create GamePlayer objects
             player1 = GamePlayer(
                 userId=user1_doc["_id"],

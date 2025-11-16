@@ -44,6 +44,7 @@ export default function GameplayPage() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [submittedPrompts, setSubmittedPrompts] = useState<string[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Fetch game data
@@ -131,54 +132,103 @@ export default function GameplayPage() {
   }, []);
 
   const handleSubmit = async (submitted: boolean, promptText: string) => {
-    if (!submitted || !playerName) return;
+    if (!submitted || !playerName || !promptText.trim()) return;
     
-    setIsSubmitted(submitted);
+    const isFirstSubmission = submittedPrompts.length === 0;
+    
+    // Mark as submitted on first submission
+    if (isFirstSubmission) {
+      setIsSubmitted(submitted);
+    }
+    
     setIsGenerating(true);
 
     try {
-      console.log('🚀 Submitting prompt to API:', { gameId, playerName, prompt: promptText });
-      
-      const response = await fetch(`${API_BASE_URL}/game/${gameId}/prompt`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          player_name: playerName,
-          prompt: promptText,
-        }),
-      });
+      if (isFirstSubmission) {
+        // First submission: use the original endpoint
+        console.log('🚀 Submitting initial prompt to API:', { gameId, playerName, prompt: promptText });
+        
+        const response = await fetch(`${API_BASE_URL}/game/${gameId}/prompt`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            player_name: playerName,
+            prompt: promptText,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to submit prompt: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Received generated output:', data);
-
-      // Update game data with latest status
-      if (data.game) {
-        setGameData(data.game);
-      }
-
-      // The output is now nested in game.outputs[playerName]
-      // Each player has their own html, css, js properties
-      if (data.game && data.game.outputs && playerName) {
-        const playerOutput = data.game.outputs[playerName];
-        if (playerOutput) {
-          setGeneratedHTML(playerOutput.html || "");
-          setGeneratedCSS(playerOutput.css || "");
-          setGeneratedJS(playerOutput.js || "");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to submit prompt: ${response.statusText}`);
         }
-      }
-      
-      // Check if game is completed
-      if (data.game && data.game.status === 'completed') {
-        console.log('🎉 Game completed! Scores:', data.game.scores);
-        setGameCompleted(true);
-        // Store game ID for results page
-        localStorage.setItem('current_game_id', gameId);
+
+        const data = await response.json();
+        console.log('✅ Received generated output:', data);
+
+        // Update game data with latest status
+        if (data.game) {
+          setGameData(data.game);
+        }
+
+        // The output is now nested in game.outputs[playerName]
+        // Each player has their own html, css, js properties
+        if (data.game && data.game.outputs && playerName) {
+          const playerOutput = data.game.outputs[playerName];
+          if (playerOutput) {
+            setGeneratedHTML(playerOutput.html || "");
+            setGeneratedCSS(playerOutput.css || "");
+            setGeneratedJS(playerOutput.js || "");
+          }
+        }
+        
+        // Check if game is completed
+        if (data.game && data.game.status === 'completed') {
+          console.log('🎉 Game completed! Scores:', data.game.scores);
+          setGameCompleted(true);
+          // Store game ID for results page
+          localStorage.setItem('current_game_id', gameId);
+        }
+        
+        // Add prompt to submitted prompts list
+        setSubmittedPrompts([promptText]);
+      } else {
+        // Subsequent submissions: use the modify endpoint
+        console.log('🔄 Submitting modification prompt to API:', { gameId, playerName, prompt: promptText });
+        
+        const response = await fetch(`${API_BASE_URL}/ai/modify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: promptText,
+            html: generatedHTML,
+            css: generatedCSS,
+            js: generatedJS,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to modify code: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Received modified output:', data);
+
+        // Update the generated code with modified versions
+        setGeneratedHTML(data.html || generatedHTML);
+        setGeneratedCSS(data.css || generatedCSS);
+        setGeneratedJS(data.js || generatedJS);
+        
+        // Reset iframe loaded state to trigger re-render
+        // Don't reset hasAutoSubmitted - we only want to auto-submit on first submission
+        setIframeLoaded(false);
+        
+        // Add prompt to submitted prompts list
+        setSubmittedPrompts(prev => [...prev, promptText]);
       }
       
       setIsGenerating(false);
@@ -438,6 +488,14 @@ export default function GameplayPage() {
             opponentID={opponentID} 
             question={question}
             onSubmit={handleSubmit}
+            submittedPrompts={submittedPrompts}
+            allowMultipleSubmissions={true}
+            gameCompleted={gameCompleted}
+            onViewResults={() => {
+              // Ensure game ID is stored for results page
+              localStorage.setItem('current_game_id', gameId);
+              router.push('/results');
+            }}
           />
         </div>
         
@@ -460,13 +518,12 @@ export default function GameplayPage() {
             </div>
           ) : generatedHTML ? (
             <div className="w-full h-full flex flex-col space-y-4 p-4">
-              {/* Header with tabs and View Results button */}
+              {/* Header with tabs */}
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="text-white text-lg font-mono shrink-0">
                   Your Generated Creation
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <div className="flex gap-1">
+                <div className="flex gap-1 shrink-0">
                   <button
                     onClick={() => setActiveTab("preview")}
                     className={`px-3 py-2 font-mono text-xs transition-colors ${
@@ -507,16 +564,6 @@ export default function GameplayPage() {
                   >
                     JS
                   </button>
-                  </div>
-                  {/* View Results button - appears when game is completed */}
-                  {gameCompleted && (
-                    <button
-                      onClick={() => router.push('/results')}
-                      className="px-4 py-2 font-mono text-sm bg-green-600 text-white hover:bg-green-700 transition-colors shadow-lg animate-pulse"
-                    >
-                      🏆 View Results
-                    </button>
-                  )}
                 </div>
               </div>
 
