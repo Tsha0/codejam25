@@ -457,15 +457,159 @@ function PlayerCard({ player, isWinner, side, categories, opponentCategories, on
   );
 }
 
+interface FeedbackModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  feedback: Record<string, string> | undefined;
+  username: string;
+  score: number;
+}
+
+function FeedbackModal({ isOpen, onClose, feedback, username, score }: FeedbackModalProps) {
+  if (!isOpen) return null;
+
+  const categoryNames: Record<string, string> = {
+    visual_design: "Visual Design and Aesthetics",
+    adherence: "Adherence to requirement",
+    creativity: "Creativity and Innovation",
+    code_quality: "Code Quality",
+    technical_implementation: "Technical Implementation",
+    prompt_clarity: "Prompt Clarity",
+    prompt_formulation: "Prompt Formulation",
+  };
+
+  const hasFeedback = feedback && Object.keys(feedback).length > 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      
+      {/* Modal */}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-3xl bg-[#0a0a0a] border-2 border-gray-400/50 rounded-lg shadow-2xl overflow-hidden"
+        style={{
+          boxShadow: '0 0 30px rgba(192, 192, 192, 0.3), 0 0 60px rgba(192, 192, 192, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {/* Terminal Header */}
+        <div className="bg-gradient-to-r from-gray-700/30 to-gray-600/30 border-b border-gray-400/30 px-4 py-3 flex items-center justify-between"
+          style={{
+            background: 'linear-gradient(to right, rgba(100, 100, 100, 0.3), rgba(150, 150, 150, 0.2), rgba(100, 100, 100, 0.3))',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500/80" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+              <div className="w-3 h-3 rounded-full bg-gray-400/80" />
+            </div>
+            <span className="text-gray-300 text-sm font-mono ml-2"
+              style={{
+                textShadow: '0 0 8px rgba(192, 192, 192, 0.5)',
+              }}
+            >
+              {username}@feedback-terminal | Score: {score}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-300 hover:text-gray-100 transition-colors text-xl font-mono"
+            style={{
+              textShadow: '0 0 4px rgba(192, 192, 192, 0.5)',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Terminal Content */}
+        <div className="p-6 font-mono text-sm max-h-[60vh] overflow-y-auto">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-gray-400" style={{ textShadow: '0 0 4px rgba(192, 192, 192, 0.5)' }}>$</span>
+            <span className="text-gray-300" style={{ textShadow: '0 0 4px rgba(192, 192, 192, 0.3)' }}>cat feedback.txt</span>
+          </div>
+          
+          {hasFeedback ? (
+            <div className="space-y-4">
+              {Object.entries(feedback).map(([key, value]) => (
+                <div key={key} className="bg-black/40 border border-gray-400/20 rounded p-4"
+                  style={{
+                    boxShadow: 'inset 0 1px 0 rgba(192, 192, 192, 0.1)',
+                  }}
+                >
+                  <div className="text-gray-300 text-xs mb-2 font-semibold"
+                    style={{
+                      textShadow: '0 0 6px rgba(192, 192, 192, 0.4)',
+                    }}
+                  >
+                    {categoryNames[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </div>
+                  <pre className="text-gray-200 whitespace-pre-wrap leading-relaxed text-sm"
+                    style={{
+                      textShadow: '0 0 4px rgba(192, 192, 192, 0.2)',
+                    }}
+                  >
+                    {value || 'No feedback available for this category.'}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-black/40 border border-gray-400/20 rounded p-4"
+              style={{
+                boxShadow: 'inset 0 1px 0 rgba(192, 192, 192, 0.1)',
+              }}
+            >
+              <pre className="text-gray-200 whitespace-pre-wrap leading-relaxed"
+                style={{
+                  textShadow: '0 0 4px rgba(192, 192, 192, 0.2)',
+                }}
+              >
+                No feedback available yet.
+              </pre>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-gray-400/60 mt-4">
+            <span className="animate-pulse" style={{ textShadow: '0 0 4px rgba(192, 192, 192, 0.5)' }}>▊</span>
+            <span className="text-xs">Press ESC or click outside to close</span>
+          </div>
+        </div>
+
+        {/* Scanline Effect */}
+        <div 
+          className="absolute inset-0 pointer-events-none opacity-10"
+          style={{
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(192, 192, 192, 0.1) 2px, rgba(192, 192, 192, 0.1) 4px)',
+          }}
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
 interface PlayerInfoProps {
   player: {
     username: string;
     score: number;
   };
   isWinner: boolean;
+  onScoreClick?: () => void;
 }
 
-function PlayerInfo({ player, isWinner, side }: PlayerInfoProps & { side: 'left' | 'right' }) {
+function PlayerInfo({ player, isWinner, side, onScoreClick }: PlayerInfoProps & { side: 'left' | 'right' }) {
   return (
     <div className={`flex flex-col ${side === 'left' ? 'items-end' : 'items-start'} justify-center gap-2`}>
       <div className="flex items-center gap-2">
@@ -475,9 +619,24 @@ function PlayerInfo({ player, isWinner, side }: PlayerInfoProps & { side: 'left'
         </h3>
         {isWinner && side === 'left' && <span className="text-xl">👑</span>}
       </div>
-      <Badge variant="secondary" className="text-xs px-2 py-0.5">
-        Score: {player.score}
-      </Badge>
+      <motion.div
+        animate={{
+          scale: [1, 1.05, 1],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      >
+        <Badge 
+          variant="secondary" 
+          className="text-xs px-2 py-0.5 cursor-pointer hover:bg-gray-700 transition-colors"
+          onClick={onScoreClick}
+        >
+          Score: {player.score}
+        </Badge>
+      </motion.div>
     </div>
   );
 }
@@ -487,6 +646,7 @@ export default function ResultsPage() {
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState<'player1' | 'player2' | null>(null);
+  const [openFeedbackModal, setOpenFeedbackModal] = useState<'player1' | 'player2' | null>(null);
 
   const loadMockData = React.useCallback(() => {
     const mockResult: GameResult = {
@@ -775,11 +935,12 @@ export default function ResultsPage() {
     fetchGameResults(gameId);
   }, [fetchGameResults, loadMockData]);
 
-  // ESC key handler to close modal
+  // ESC key handler to close modals
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setOpenModal(null);
+        setOpenFeedbackModal(null);
       }
     };
 
@@ -828,6 +989,7 @@ export default function ResultsPage() {
             player={gameResult.player1}
             isWinner={isPlayer1Winner}
             side="left"
+            onScoreClick={() => setOpenFeedbackModal('player1')}
           />
           
           {/* Player 1 Card */}
@@ -891,6 +1053,7 @@ export default function ResultsPage() {
             player={gameResult.player2}
             isWinner={!isPlayer1Winner}
             side="right"
+            onScoreClick={() => setOpenFeedbackModal('player2')}
           />
         </div>
 
@@ -989,6 +1152,20 @@ export default function ResultsPage() {
         prompt={gameResult.player2.prompt}
         code={gameResult.player2.code}
         username={gameResult.player2.username}
+      />
+      <FeedbackModal
+        isOpen={openFeedbackModal === 'player1'}
+        onClose={() => setOpenFeedbackModal(null)}
+        feedback={gameResult.player1.feedback}
+        username={gameResult.player1.username}
+        score={gameResult.player1.score}
+      />
+      <FeedbackModal
+        isOpen={openFeedbackModal === 'player2'}
+        onClose={() => setOpenFeedbackModal(null)}
+        feedback={gameResult.player2.feedback}
+        username={gameResult.player2.username}
+        score={gameResult.player2.score}
       />
     </div>
   );
