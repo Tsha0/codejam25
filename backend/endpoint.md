@@ -332,18 +332,60 @@ Get the full details of a game, including prompts, outputs, scores, and winner.
     "players": ["Nova", "Echo"],
     "assigned_image": "retro.png",
     "prompts": {
-      "Echo": "Create a modern social media login page..."
+      "Echo": "Create a modern social media login page...",
+      "Nova": "Build a minimalist dashboard..."
     },
     "outputs": {
       "Echo": {
         "html": "<div class=\"login-container\">...</div>",
         "css": "body { font-family: ... }",
         "js": ""
+      },
+      "Nova": {
+        "html": "<div>...</div>",
+        "css": "...",
+        "js": "..."
       }
+    },
+    "submissions": {
+      "Echo": "/path/to/submission/image.png",
+      "Nova": "/path/to/submission/image.png"
     },
     "scores": {
       "Echo": 85.5,
       "Nova": 92.3
+    },
+    "category_scores": {
+      "Echo": {
+        "visual_design": 18.0,
+        "adherence": 17.5,
+        "creativity": 16.0,
+        "prompt_clarity": 17.0,
+        "prompt_formulation": 16.0
+      },
+      "Nova": {
+        "visual_design": 19.0,
+        "adherence": 18.5,
+        "creativity": 18.0,
+        "prompt_clarity": 18.5,
+        "prompt_formulation": 18.3
+      }
+    },
+    "feedback": {
+      "Echo": {
+        "visual_design": "Good use of colors and layout...",
+        "adherence": "Meets most requirements...",
+        "creativity": "Some innovative elements...",
+        "prompt_clarity": "Clear and well-structured...",
+        "prompt_formulation": "Could be more specific..."
+      },
+      "Nova": {
+        "visual_design": "Excellent design...",
+        "adherence": "Fully meets requirements...",
+        "creativity": "Highly innovative...",
+        "prompt_clarity": "Very clear and detailed...",
+        "prompt_formulation": "Well-formulated prompt..."
+      }
     },
     "winner": "Nova",
     "status": "completed",
@@ -513,6 +555,36 @@ Generate AI output from a player's prompt. This endpoint submits a prompt, gener
   "status": "completed"
 }
 ```
+
+---
+
+### POST `/ai/modify`
+
+Modify and improve existing HTML/CSS/JS code based on a new prompt. This endpoint takes existing code and a modification request, then returns improved/modified versions of the code.
+
+**Request Body**:
+```json
+{
+  "prompt": "Make the background gradient more vibrant and add smooth animations",
+  "html": "<div class=\"container\">...</div>",
+  "css": "body { background: #fff; }",
+  "js": "console.log('Hello');"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "html": "<div class=\"container\">...</div>",
+  "css": "body { background: linear-gradient(...); }",
+  "js": "// Improved JavaScript code",
+  "context": "Modification request: Make the background gradient more vibrant and add smooth animations"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: If `prompt` is missing or invalid
+- `503 Service Unavailable`: If Gemini API fails or is unavailable
 
 ---
 

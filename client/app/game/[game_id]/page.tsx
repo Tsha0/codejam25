@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Component } from "@/components/ui/ai-assistant-card";
+import html2canvas from "html2canvas";
 
 // Note: Auth routes use /auth, but game/matchmaking routes use /api
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -41,6 +42,11 @@ export default function GameplayPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "html" | "css" | "js">("preview");
   const [gameCompleted, setGameCompleted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Fetch game data
   useEffect(() => {
@@ -153,6 +159,11 @@ export default function GameplayPage() {
       const data = await response.json();
       console.log('✅ Received generated output:', data);
 
+      // Update game data with latest status
+      if (data.game) {
+        setGameData(data.game);
+      }
+
       // The output is now nested in game.outputs[playerName]
       // Each player has their own html, css, js properties
       if (data.game && data.game.outputs && playerName) {
@@ -179,6 +190,206 @@ export default function GameplayPage() {
       setIsGenerating(false);
     }
   };
+
+  const captureAndSubmitPreview = useCallback(async () => {
+    if (!iframeRef.current || !gameId || !playerName || !generatedHTML) {
+      console.error('❌ Missing required data for submission:', {
+        hasIframe: !!iframeRef.current,
+        gameId,
+        playerName,
+        hasGeneratedHTML: !!generatedHTML
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      console.log('📸 Starting automatic preview capture and submission...');
+      
+      // Get the iframe's content document
+      const iframe = iframeRef.current;
+      const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
+      
+      if (!iframeDocument) {
+        throw new Error('Cannot access iframe content');
+      }
+
+      // Wait a bit for any animations/rendering to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('📷 Capturing iframe as canvas...');
+      // Capture the iframe body as canvas
+      const canvas = await html2canvas(iframeDocument.body, {
+        backgroundColor: '#ffffff',
+        scale: 1,
+        useCORS: true,
+        logging: false,
+      });
+
+      console.log('🖼️ Converting canvas to WebP blob...');
+      // Convert canvas to WebP blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob: Blob | null) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to convert canvas to blob'));
+            }
+          },
+          'image/webp',
+          0.9 // quality (0-1)
+        );
+      });
+
+      console.log('📄 Converting blob to base64 data URL...');
+      // Convert blob to base64 data URL
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to read blob as data URL'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      console.log('🚀 Submitting preview to /ai/submit API...', {
+        game_id: gameId,
+        player_name: playerName,
+        image_size: dataUrl.length
+      });
+
+      // Submit to backend
+      const response = await fetch(`${API_BASE_URL}/ai/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          game_id: gameId,
+          player_name: playerName,
+          image: dataUrl, // Send as base64 data URL
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to submit: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Automatic submission successful:', data);
+      console.log('🎮 Game status:', data.game?.status);
+      console.log('📊 Submission data:', {
+        game_id: gameId,
+        player_name: playerName,
+        status: data.status,
+        message: data.message
+      });
+      
+    } catch (err) {
+      console.error('❌ Error capturing/submitting preview:', err);
+      console.error('Error details:', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        gameId,
+        playerName
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [gameId, playerName, generatedHTML]);
+
+  // Poll game status when player has submitted their prompt
+  useEffect(() => {
+    if (!gameId || !playerName || !generatedHTML || hasAutoSubmitted) {
+      return;
+    }
+
+    const pollGameStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/game/${gameId}`);
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const game = data.game;
+        
+        if (game) {
+          setGameData(game);
+          
+          // Check if game is completed and iframe is loaded
+          if (game.status === 'completed' && iframeLoaded && !hasAutoSubmitted) {
+            console.log('🎯 Game completed and iframe loaded - triggering automatic submission');
+            setHasAutoSubmitted(true);
+            await captureAndSubmitPreview();
+          }
+        }
+      } catch (err) {
+        console.error('Error polling game status:', err);
+      }
+    };
+
+    // Poll every 2 seconds
+    const interval = setInterval(pollGameStatus, 2000);
+    
+    // Also check immediately
+    pollGameStatus();
+
+    return () => clearInterval(interval);
+  }, [gameId, playerName, generatedHTML, iframeLoaded, hasAutoSubmitted, captureAndSubmitPreview]);
+
+  // Check if game is already completed when iframe loads
+  useEffect(() => {
+    if (iframeLoaded && gameData?.status === 'completed' && generatedHTML && !hasAutoSubmitted) {
+      console.log('🎯 Iframe loaded and game already completed - triggering automatic submission');
+      setHasAutoSubmitted(true);
+      captureAndSubmitPreview();
+    }
+  }, [iframeLoaded, gameData?.status, generatedHTML, hasAutoSubmitted, captureAndSubmitPreview]);
+
+  // Poll for game completion and winner after submission
+  useEffect(() => {
+    if (!gameId || !hasAutoSubmitted) {
+      return;
+    }
+
+    const pollForCompletion = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/game/${gameId}`);
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const game = data.game;
+        
+        if (game) {
+          setGameData(game);
+          
+          // Check if game is completed and winner is determined
+          if (game.status === 'completed' && game.winner !== null && game.winner !== undefined) {
+            console.log('🎉 Game completed with winner:', game.winner);
+            setGameCompleted(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error polling for game completion:', err);
+      }
+    };
+
+    // Poll every 2 seconds for completion
+    const interval = setInterval(pollForCompletion, 2000);
+    
+    // Also check immediately
+    pollForCompletion();
+
+    return () => clearInterval(interval);
+  }, [gameId, hasAutoSubmitted]);
 
   // Loading state
   if (loading) {
@@ -324,6 +535,7 @@ export default function GameplayPage() {
               <div className="flex-1 bg-white rounded-lg shadow-2xl overflow-auto border-4 border-slate-400/50 min-h-0">
                 {activeTab === "preview" && (
                   <iframe
+                    ref={iframeRef}
                     srcDoc={`
                       <!DOCTYPE html>
                       <html>
@@ -348,8 +560,12 @@ export default function GameplayPage() {
                       </html>
                     `}
                     className="w-full h-full border-0"
-                    sandbox="allow-scripts"
+                    sandbox="allow-scripts allow-same-origin"
                     title="Generated Output"
+                    onLoad={() => {
+                      console.log('✅ Iframe successfully loaded and rendered');
+                      setIframeLoaded(true);
+                    }}
                   />
                 )}
                 {activeTab === "html" && (

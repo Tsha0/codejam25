@@ -68,27 +68,67 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl animate-pulse" 
-             style={{ animationDuration: "4s" }} />
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-accent/10 to-transparent rounded-full blur-3xl animate-pulse" 
-             style={{ animationDuration: "5s", animationDelay: "1s" }} />
-      </div>
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes glare {
+          0% {
+            background-position: -200% center;
+          }
+          100% {
+            background-position: 200% center;
+          }
+        }
+        .glare-text {
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            transparent 35%,
+            rgba(255, 255, 255, 0.9) 45%,
+            rgba(255, 255, 255, 1) 50%,
+            rgba(255, 255, 255, 0.9) 55%,
+            transparent 65%,
+            transparent 100%
+          );
+          background-size: 200% 100%;
+          background-clip: text;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: glare 3s ease-in-out infinite;
+          mix-blend-mode: overlay;
+        }
+        .glowing-card {
+          box-shadow: 0 0 20px rgba(255, 255, 255, 0.3),
+                      0 0 40px rgba(255, 255, 255, 0.2),
+                      0 0 60px rgba(255, 255, 255, 0.1),
+                      0 0 80px rgba(255, 255, 255, 0.05);
+        }
+      `}} />
+      <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-foreground via-foreground to-muted/20">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-accent/10 to-transparent rounded-full blur-3xl animate-pulse" 
+               style={{ animationDuration: "4s" }} />
+          <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-primary/10 to-transparent rounded-full blur-3xl animate-pulse" 
+               style={{ animationDuration: "5s", animationDelay: "1s" }} />
+        </div>
 
-      {/* Auth Card */}
-      <div className="relative z-10 w-full max-w-md px-4">
-        <div className="mb-8 text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Welcome Back
-          </h1>
-          <p className="text-muted-foreground">
+        {/* Auth Card */}
+        <div className="relative z-10 w-full max-w-md px-4">
+          <div className="mb-8 text-center space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight relative inline-block">
+              <span className="bg-gradient-to-r from-background to-background/70 bg-clip-text text-transparent">
+                Ready to Prompt?
+              </span>
+              <span className="glare-text absolute inset-0 bg-gradient-to-r from-background to-background/70 bg-clip-text text-transparent pointer-events-none">
+                Ready to Prompt?
+              </span>
+            </h1>
+          <p className="text-foreground">
             {isSignUp ? "Create your account to get started" : "Sign in to continue to your account"}
           </p>
         </div>
 
-        <Card className="backdrop-blur-sm bg-card/95 border-border/50 shadow-2xl">
+        <Card className="backdrop-blur-sm bg-card/95 border-border/50 shadow-2xl glowing-card">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">
               {isSignUp ? "Create Account" : "Sign In"}
@@ -289,11 +329,12 @@ export default function AuthPage() {
         </Card>
 
         {/* Footer Note */}
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-foreground">
           By continuing, you agree to our Terms of Service and Privacy Policy.
         </p>
       </div>
     </div>
+    </>
   )
 }
 

@@ -55,5 +55,10 @@ def _create_indexes():
     db.games.create_index([("status", 1), ("createdAt", -1)])
     db.games.create_index([("completedAt", -1)])
     
+    # Submissions indexes
+    db.submissions.create_index([("game_id", 1), ("player_name", 1)], unique=True)
+    db.submissions.create_index([("game_id", 1)])
+    db.submissions.create_index([("created_at", -1)])
+    
     print("✅ MongoDB indexes created")
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -88,6 +89,28 @@ class AiService:
             "created_at": serialize_dt(utc_now()),
         }
 
+    def modify_code(self, prompt: str, html: str, css: str, js: str) -> Dict[str, str]:
+        """Modify existing HTML/CSS/JS code based on a new prompt.
+        
+        Args:
+            prompt: The modification request/improvement prompt
+            html: Existing HTML code
+            css: Existing CSS code
+            js: Existing JavaScript code
+            
+        Returns:
+            Dictionary with modified 'html', 'css', 'js', and 'context' sections
+            
+        Raises:
+            ExternalServiceError: If Gemini API fails
+        """
+        if not self._client:
+            raise ExternalServiceError("Gemini client is not configured.")
+        
+        cleaned_prompt = _clean_prompt(prompt)
+        sections = self._modify_output(cleaned_prompt, html, css, js)
+        return sections
+
     def score_game(self, game_id: str, *, outputs: Optional[Dict[str, str]] = None) -> Game:
         """Score a game by comparing player outputs."""
         if outputs:
@@ -145,6 +168,32 @@ class AiService:
         except Exception as exc:  # pragma: no cover - safeguard
             raise ExternalServiceError("Gemini request failed.") from exc
 
+    def _modify_output(self, prompt: str, html: str, css: str, js: str) -> Dict[str, str]:
+        """Modify existing HTML/CSS/JS code based on a prompt using Gemini API."""
+        if not self._client:
+            raise ExternalServiceError("Gemini client is not configured.")
+
+        try:
+            response = self._client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=self._build_modify_prompt(prompt, html, css, js),
+                config={
+                    "temperature": 0.3,
+                    "top_p": 0.8,
+                    "top_k": 32,
+                    "max_output_tokens": 65536,
+                },
+            )
+            raw_text = self._extract_response_text(response)
+            sections = self._parse_sections_from_response(raw_text)
+            if not sections:
+                raise ExternalServiceError("Gemini response missing required sections.")
+            return sections
+        except (ExternalServiceError, json.JSONDecodeError, AttributeError) as exc:
+            raise ExternalServiceError("Gemini response missing required sections.") from exc
+        except Exception as exc:  # pragma: no cover - safeguard
+            raise ExternalServiceError("Gemini request failed.") from exc
+
     @staticmethod
     def _combine_sections(sections: Dict[str, str]) -> str:
         """Combine HTML, CSS, and JS sections into a single string."""
@@ -175,6 +224,31 @@ class AiService:
             ""
         )
         return f"{instructions}\nUser prompt: {prompt}"
+
+    @staticmethod
+    def _build_modify_prompt(prompt: str, html: str, css: str, js: str) -> str:
+        """Build the prompt string for modifying existing code with Gemini API."""
+        instructions = (
+            "You are modifying and improving existing website code based on a user's request.\n"
+            "Respond ONLY with JSON following this schema:\n"
+            '{ "context": "Modification request: <prompt>", "html": "<html...>", "css": "...", "js": "..." }\n'
+            "Rules:\n"
+            "- Do NOT wrap the JSON in markdown fences.\n"
+            "- context must be exactly \"Modification request: <prompt>\".\n"
+            "- html/css/js must be plain text (no backticks) and contain the improved/modified code.\n"
+            "- Preserve the existing functionality unless the prompt explicitly asks to change it.\n"
+            "- Apply the requested modifications while maintaining code quality and best practices.\n"
+            "- Use semantic HTML, responsive CSS, and vanilla JS only.\n"
+            "- Keep the code structure similar to the original unless the prompt requires major changes.\n"
+            ""
+        )
+        existing_code = (
+            f"\n\nExisting HTML:\n{html}\n\n"
+            f"Existing CSS:\n{css}\n\n"
+            f"Existing JavaScript:\n{js}\n\n"
+            f"Modification request: {prompt}"
+        )
+        return f"{instructions}{existing_code}"
 
     @staticmethod
     def _extract_response_text(response: Any) -> str:
@@ -488,35 +562,51 @@ Do NOT wrap the JSON in markdown fences. Return only the JSON object."""
         if not self._client:
             raise ExternalServiceError("Gemini client is not configured.")
         
-        # Load images
+        # Load images from MongoDB
         player1, player2 = game.players[0], game.players[1]
-        image1_path = game.submissions[player1]
-        image2_path = game.submissions[player2]
+        submission1_id = game.submissions[player1]
+        submission2_id = game.submissions[player2]
         
-        # Read images
+        # Fetch images from MongoDB
         try:
-            with open(image1_path, 'rb') as f:
-                image1_bytes = f.read()
-            with open(image2_path, 'rb') as f:
-                image2_bytes = f.read()
+            from ..extensions import db
+            from bson import ObjectId
+            
+            submission1 = db.submissions.find_one({"_id": ObjectId(submission1_id)})
+            submission2 = db.submissions.find_one({"_id": ObjectId(submission2_id)})
+            
+            if not submission1 or not submission2:
+                raise ExternalServiceError("Submission images not found in MongoDB")
+            
+            # Extract base64 data from data URL
+            image1_data_url = submission1.get("image_data", "")
+            image2_data_url = submission2.get("image_data", "")
+            
+            if not image1_data_url or not image2_data_url:
+                raise ExternalServiceError("Image data not found in submission documents")
+            
+            # Parse data URLs: "data:image/png;base64,<data>" (all images are stored as PNG)
+            def parse_data_url(data_url: str) -> tuple[bytes, str]:
+                if not data_url.startswith("data:image/"):
+                    raise ValueError("Invalid data URL format")
+                
+                # Extract MIME type and base64 data
+                header, encoded = data_url.split(",", 1)
+                mime_type = header.split(";")[0].split(":")[1]  # Extract "image/png" from "data:image/png;base64"
+                image_bytes = base64.b64decode(encoded)
+                return image_bytes, mime_type
+            
+            image1_bytes, mime1 = parse_data_url(image1_data_url)
+            image2_bytes, mime2 = parse_data_url(image2_data_url)
+            
+            # Ensure both images are PNG (they should be, but verify)
+            if mime1 != "image/png":
+                print(f"Warning: Player1 image is {mime1}, expected PNG")
+            if mime2 != "image/png":
+                print(f"Warning: Player2 image is {mime2}, expected PNG")
+            
         except Exception as exc:
-            raise ExternalServiceError(f"Failed to read submission images: {str(exc)}") from exc
-        
-        # Determine MIME type from file extension
-        def get_mime_type(path: str) -> str:
-            ext = Path(path).suffix.lower()
-            mime_types = {
-                '.png': 'image/png',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.webp': 'image/webp',
-                '.heic': 'image/heic',
-                '.heif': 'image/heif',
-            }
-            return mime_types.get(ext, 'image/jpeg')
-        
-        mime1 = get_mime_type(image1_path)
-        mime2 = get_mime_type(image2_path)
+            raise ExternalServiceError(f"Failed to load submission images from MongoDB: {str(exc)}") from exc
         
         # Create image parts
         image1_part = types.Part.from_bytes(data=image1_bytes, mime_type=mime1)
