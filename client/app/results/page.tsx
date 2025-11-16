@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,8 @@ interface GameResult {
     code: string | CodeContent;
     output: string;
     score: number;
+    categories?: CategoryScore[];
+    feedback?: Record<string, string>;
   };
   player2: {
     username: string;
@@ -27,6 +29,8 @@ interface GameResult {
     code: string | CodeContent;
     output: string;
     score: number;
+    categories?: CategoryScore[];
+    feedback?: Record<string, string>;
   };
   targetImage: string;
   winner: string;
@@ -42,6 +46,7 @@ interface PlayerCardProps {
   player: {
     username: string;
     prompt: string;
+    code: string | CodeContent;
     output: string;
     score: number;
   };
@@ -279,9 +284,48 @@ function PlayerCard({ player, isWinner, side, categories, opponentCategories, on
     return opponentCategory ? myScore > opponentCategory.score : false;
   };
 
+  // Determine if we should render code or image
+  const codeObj = typeof player.code === 'object' ? (player.code as CodeContent) : null;
+  const hasCodeOutput = codeObj && (codeObj.html || codeObj.css || codeObj.js);
+  const hasImageOutput = player.output && player.output.trim() !== '' && !player.output.startsWith('/api/');
+  
+  // Generate iframe content for code preview (matching game page implementation)
+  const getCodePreview = () => {
+    if (!codeObj) return '';
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: system-ui, -apple-system, sans-serif;
+        box-sizing: border-box;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      ${codeObj.css || ''}
+    </style>
+  </head>
+  <body>
+    ${codeObj.html || '<div style="display: flex; align-items: center; justify-content: center; height: 100vh; color: #666;">No HTML output</div>'}
+    <script>
+      try {
+        ${codeObj.js || ''}
+      } catch (error) {
+        console.error('Error executing JavaScript:', error);
+      }
+    </script>
+  </body>
+</html>`;
+  };
+
   return (
     <div className="flex flex-col items-center">
-      {/* Image with hover effect */}
+      {/* Preview with hover effect */}
       <motion.div
         className="relative w-[25vw] aspect-video cursor-pointer mb-3"
         onHoverStart={() => setIsHovered(true)}
@@ -304,11 +348,25 @@ function PlayerCard({ player, isWinner, side, categories, opponentCategories, on
             : {}
         }
       >
+        {hasCodeOutput ? (
+          <iframe
+            srcDoc={getCodePreview()}
+            className="w-full h-full rounded-lg shadow-2xl transition-all duration-300 border-0 bg-white"
+            sandbox="allow-scripts"
+            title={`${player.username}'s code output`}
+            style={{ pointerEvents: isHovered ? 'auto' : 'none' }}
+          />
+        ) : hasImageOutput ? (
         <img
           src={player.output}
           alt={`${player.username}'s submission`}
           className="w-full h-full object-cover rounded-lg shadow-2xl transition-all duration-300"
         />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center rounded-lg shadow-2xl bg-gray-800">
+            <span className="text-gray-400 font-mono text-sm">No output available</span>
+          </div>
+        )}
       </motion.div>
 
       {/* Categories that fade in one by one */}
@@ -412,9 +470,58 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState<'player1' | 'player2' | null>(null);
 
-  useEffect(() => {
-    // TODO: Fetch actual game results from your backend
-    // For now, using mock data
+  const fetchGameResults = React.useCallback(async (gameId: string) => {
+    try {
+      setLoading(true);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_URL}/api/game/${gameId}/results`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch game results');
+      }
+      
+      const data = await response.json();
+      console.log('📊 Game results data received:', data);
+      
+      // Transform API data to match GameResult interface
+      const result: GameResult = {
+        player1: {
+          username: data.player1.username,
+          prompt: data.player1.prompt,
+          code: data.player1.code,
+          output: data.player1.output,
+          score: data.player1.score,
+          categories: data.player1.categories,
+          feedback: data.player1.feedback,
+        },
+        player2: {
+          username: data.player2.username,
+          prompt: data.player2.prompt,
+          code: data.player2.code,
+          output: data.player2.output,
+          score: data.player2.score,
+          categories: data.player2.categories,
+          feedback: data.player2.feedback,
+        },
+        targetImage: data.targetImage,
+        winner: data.winner,
+      };
+      
+      console.log('✅ Transformed game result:', result);
+      console.log('🎨 Player 1 code type:', typeof result.player1.code, result.player1.code);
+      console.log('🎨 Player 2 code type:', typeof result.player2.code, result.player2.code);
+      
+      setGameResult(result);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching game results:', err);
+      // Fall back to mock data on error
+      loadMockData();
+    }
+  }, []);
+
+  const loadMockData = React.useCallback(() => {
     const mockResult: GameResult = {
       player1: {
         username: "CodeWarrior",
@@ -607,6 +714,21 @@ export default function ResultsPage() {
     }, 500);
   }, []);
 
+  useEffect(() => {
+    // Get game_id from localStorage (set during gameplay)
+    const gameId = localStorage.getItem('current_game_id');
+    
+    if (!gameId) {
+      // Fallback to mock data if no game_id
+      console.warn('No game_id found, using mock data');
+      loadMockData();
+      return;
+    }
+
+    // Fetch real game results
+    fetchGameResults(gameId);
+  }, [fetchGameResults, loadMockData]);
+
   // ESC key handler to close modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -667,8 +789,8 @@ export default function ResultsPage() {
             player={gameResult.player1}
             isWinner={isPlayer1Winner}
             side="left"
-            categories={player1Categories}
-            opponentCategories={player2Categories}
+            categories={gameResult.player1.categories || player1Categories}
+            opponentCategories={gameResult.player2.categories || player2Categories}
             onOpenModal={() => setOpenModal('player1')}
           />
 
@@ -677,8 +799,8 @@ export default function ResultsPage() {
             player={gameResult.player2}
             isWinner={!isPlayer1Winner}
             side="right"
-            categories={player2Categories}
-            opponentCategories={player1Categories}
+            categories={gameResult.player2.categories || player2Categories}
+            opponentCategories={gameResult.player1.categories || player1Categories}
             onOpenModal={() => setOpenModal('player2')}
           />
           
@@ -714,7 +836,25 @@ export default function ResultsPage() {
           </Button>
           <Button
             size="lg"
-            onClick={() => router.push("/game/waiting")}
+            onClick={() => {
+              // Clear old game ID before starting new game
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('current_game_id');
+              }
+              
+              // Get authenticated username for next game
+              const userStr = typeof window !== 'undefined' ? localStorage.getItem("user") : null;
+              let username = 'Player';
+              if (userStr) {
+                try {
+                  const user = JSON.parse(userStr);
+                  username = user.username || user.name || 'Player';
+                } catch (e) {
+                  console.error("Failed to parse user from localStorage:", e);
+                }
+              }
+              router.push(`/game/waiting?player=${encodeURIComponent(username)}`);
+            }}
             className="relative overflow-hidden group"
             style={{
               background: 'linear-gradient(145deg, #1a4d2e, #0d3320)',

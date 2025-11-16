@@ -164,14 +164,16 @@ def submit_prompt(game_id: str):
         game_id, data.get("player_name"), data.get("prompt")
     )
     
-    # Check if both players have outputs, and if so, score the game
+    # Check if both players have outputs, and if so, score the game based on code
     if len(game.outputs) >= len(game.players):
         try:
-            game = ai_service.score_game(game.id)
+            game = ai_service.score_code_outputs(game.id)
             status_code = HTTPStatus.OK
         except ValueError:
             # Not all outputs ready yet, return current state
             status_code = HTTPStatus.ACCEPTED
+        except ExternalServiceError as e:
+            return jsonify({"error": str(e)}), HTTPStatus.SERVICE_UNAVAILABLE
     else:
         status_code = HTTPStatus.ACCEPTED
     
@@ -191,6 +193,99 @@ def complete_game(game_id: str):
     return jsonify({"game": game.to_dict()})
 
 
+@api_bp.route("/game/<game_id>/results", methods=["GET"])
+def get_game_results(game_id: str):
+    """Get complete game results formatted for the results page."""
+    try:
+        game = game_service.get_game(game_id)
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.NOT_FOUND
+    
+    # Check if game is completed
+    if game.status != "completed":
+        return jsonify({
+            "error": "Game is not completed yet",
+            "status": game.status
+        }), HTTPStatus.BAD_REQUEST
+    
+    # Get player data
+    player1, player2 = game.players[0], game.players[1]
+    
+    # Format category scores for results page
+    def format_categories(player: str) -> list:
+        """Format category scores into list for frontend."""
+        category_map = {
+            "visual_design": "Visual Design and Aesthetics",
+            "adherence": "Adherence to requirement",
+            "creativity": "Creativity and Innovation",
+            "code_quality": "Code Quality",
+            "technical_implementation": "Technical Implementation",
+            # Legacy categories (for image submissions)
+            "prompt_clarity": "Prompt Clarity",
+            "prompt_formulation": "Prompt Formulation",
+        }
+        
+        categories = []
+        player_scores = game.category_scores.get(player, {})
+        
+        for key, name in category_map.items():
+            # Only include categories that exist in the game data
+            if key in player_scores:
+                score = player_scores.get(key, 0)
+                # Convert 0-20 scale to 0-100 percentage
+                percentage = int((score / 20) * 100) if score else 0
+                categories.append({
+                    "name": name,
+                    "key": key,
+                    "score": percentage,
+                })
+        
+        return categories
+    
+    # Format feedback for results page
+    def format_feedback(player: str) -> dict:
+        """Format feedback into dict for frontend."""
+        return game.feedback.get(player, {})
+    
+    # Build response
+    response = {
+        "gameId": game.id,
+        "status": game.status,
+        "player1": {
+            "username": player1,
+            "prompt": game.prompts.get(player1, ""),
+            "code": game.output_sections.get(player1, {
+                "html": "",
+                "css": "",
+                "js": ""
+            }),
+            "output": game.submissions.get(player1, ""),
+            "score": round(game.scores.get(player1, 0), 1),
+            "categories": format_categories(player1),
+            "feedback": format_feedback(player1),
+        },
+        "player2": {
+            "username": player2,
+            "prompt": game.prompts.get(player2, ""),
+            "code": game.output_sections.get(player2, {
+                "html": "",
+                "css": "",
+                "js": ""
+            }),
+            "output": game.submissions.get(player2, ""),
+            "score": round(game.scores.get(player2, 0), 1),
+            "categories": format_categories(player2),
+            "feedback": format_feedback(player2),
+        },
+        "targetImage": game.assigned_image or "",
+        "winner": game.winner or "",
+        "createdAt": game.created_at.isoformat() if game.created_at else None,
+        "completedAt": game.updated_at.isoformat() if game.updated_at else None,
+    }
+    
+    return jsonify(response), HTTPStatus.OK
+
+
 # AI endpoints ------------------------------------------------------------
 
 
@@ -201,20 +296,23 @@ def ai_generate():
         data.get("game_id"), data.get("player_name"), data.get("prompt")
     )
     
-    # Check if both players have outputs, and if so, score the game
-    if len(game.outputs) >= len(game.players):
-        try:
-            game = ai_service.score_game(game.id)
-            status_code = HTTPStatus.OK
-        except ValueError:
-            # Not all outputs ready yet, return current state
-            status_code = HTTPStatus.ACCEPTED
-    else:
-        status_code = HTTPStatus.ACCEPTED
+    # Auto-grading commented out - grading happens in /ai/submit after image submissions
+    # # Check if both players have outputs, and if so, score the game
+    # if len(game.outputs) >= len(game.players):
+    #     try:
+    #         game = ai_service.score_game(game.id)
+    #         status_code = HTTPStatus.OK
+    #     except ValueError:
+    #         # Not all outputs ready yet, return current state
+    #         status_code = HTTPStatus.ACCEPTED
+    # else:
+    #     status_code = HTTPStatus.ACCEPTED
+    
+    status_code = HTTPStatus.ACCEPTED  # Code generated, awaiting image submissions
     
     response = {"game": game.to_dict(), "status": game.status}
     if game.status != "completed":
-        response["message"] = "Awaiting second output before scoring."
+        response["message"] = "Awaiting image submissions for final scoring."
     return jsonify(response), status_code
 
 

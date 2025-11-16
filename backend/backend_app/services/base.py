@@ -38,8 +38,8 @@ def normalize_name(value: str, field: str = "name") -> str:
     if value is None or not isinstance(value, str):
         raise ValidationError(f"{field} is required.")
     cleaned = re.sub(r"\s+", " ", value).strip()
-    if not (2 <= len(cleaned) <= 64):
-        raise ValidationError(f"{field} must be 2-64 characters.")
+    if not (1 <= len(cleaned) <= 64):
+        raise ValidationError(f"{field} must be 1-64 characters.")
     return cleaned
 
 

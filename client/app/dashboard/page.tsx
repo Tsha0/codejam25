@@ -210,11 +210,29 @@ export default function DashboardPage() {
             </Link>
 
             <div className="flex items-center gap-4">
-              <Link href="/game/waiting">
-                <Button className="bg-cyan-400 text-black hover:bg-cyan-300 font-mono">
-                  FIND GAME
-                </Button>
-              </Link>
+              <Button 
+                onClick={() => {
+                  // Clear old game ID before starting new game
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('current_game_id');
+                  }
+                  router.push(`/game/waiting?player=${encodeURIComponent(dashboardData?.user?.username || 'Player')}`);
+                }}
+                className="bg-white text-black hover:bg-white/90 font-mono"
+              >
+                FIND GAME
+              </Button>
+              <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
+                <Settings className="w-5 h-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-white/60 hover:text-white hover:bg-white/10"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
             </div>
           </div>
         </div>

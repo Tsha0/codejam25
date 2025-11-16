@@ -25,10 +25,28 @@ export default function WaitingPage() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [position, setPosition] = useState<number>(0);
   
-  // Generate player name once - stable across re-renders
-  const [playerName] = useState(() => 
-    searchParams.get("player") || `Player_${Math.floor(Math.random() * 10000)}`
-  );
+  // Get player name from authenticated user or URL parameter
+  const [playerName] = useState(() => {
+    // Try to get from URL first
+    const urlPlayer = searchParams.get("player");
+    if (urlPlayer) return urlPlayer;
+    
+    // Try to get from authenticated user
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          return user.username || user.name || `Player_${Math.floor(Math.random() * 10000)}`;
+        } catch (e) {
+          console.error("Failed to parse user from localStorage:", e);
+        }
+      }
+    }
+    
+    // Fallback to random name (for testing without auth)
+    return `Player_${Math.floor(Math.random() * 10000)}`;
+  });
 
   useEffect(() => {
     console.log('🔵 useEffect running for player:', playerName);

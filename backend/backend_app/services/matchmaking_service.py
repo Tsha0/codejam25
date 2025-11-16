@@ -64,7 +64,15 @@ class MatchmakingService:
             # Check if player was already matched (handles polling after match)
             if player in self._matched_players:
                 game = self._matched_players[player]
-                return {"status": "matched", "game": game}
+                
+                # If game is completed, remove from matched players and continue
+                # This allows players to join matchmaking again after game ends
+                if game.status == "completed":
+                    print(f"🔄 Removing {player} from matched players (game completed)")
+                    del self._matched_players[player]
+                    # Continue to add player to queue below
+                else:
+                    return {"status": "matched", "game": game}
             
             # Check if player is already waiting in queue
             if player in self._queue:
@@ -159,3 +167,25 @@ class MatchmakingService:
             if player in self._queue:
                 return self._queue.index(player) + 1
         return 0
+    
+    def cleanup_completed_games(self) -> int:
+        """Remove completed games from matched players tracking.
+        
+        This is called periodically or when games complete to free up memory
+        and allow players to re-enter matchmaking.
+        
+        Returns:
+            Number of completed games cleaned up
+        """
+        with self._lock:
+            completed = [
+                player for player, game in self._matched_players.items()
+                if game.status == "completed"
+            ]
+            for player in completed:
+                del self._matched_players[player]
+            
+            if completed:
+                print(f"🧹 Cleaned up {len(completed)} players from completed games")
+            
+            return len(completed)

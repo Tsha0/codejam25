@@ -305,6 +305,228 @@ class AiService:
         diversity_score = min(unique_words * 0.5, 30)
         return round(length_score + diversity_score, 2)
 
+    def score_code_outputs(self, game_id: str) -> Game:
+        """Score a game by comparing player HTML/CSS/JS outputs.
+        
+        Uses Gemini API to evaluate code outputs based on:
+        - Visual Design and Aesthetics (20 points)
+        - Adherence to requirement (20 points)
+        - Creativity and Innovation (20 points)
+        - Code Quality (20 points)
+        - Technical Implementation (20 points)
+        
+        Args:
+            game_id: The game ID
+            
+        Returns:
+            The completed game with scores and feedback
+            
+        Raises:
+            ValueError: If not all outputs are available
+            ExternalServiceError: If Gemini API fails
+        """
+        game = self._game_service.get_game(game_id)
+        
+        # Check all players have outputs
+        missing = [player for player in game.players if player not in game.outputs]
+        if missing:
+            raise ValueError("All player outputs are required before scoring.")
+        
+        # Check all players have prompts
+        missing_prompts = [player for player in game.players if player not in game.prompts]
+        if missing_prompts:
+            raise ValueError("All player prompts are required before scoring.")
+        
+        if not self._client:
+            raise ExternalServiceError("Gemini client is not configured.")
+        
+        # Get player data
+        player1, player2 = game.players[0], game.players[1]
+        
+        # Get output sections (HTML, CSS, JS)
+        player1_sections = game.output_sections.get(player1, {})
+        player2_sections = game.output_sections.get(player2, {})
+        
+        # Get prompts
+        requirement = game.assigned_image or "the challenge requirements"
+        prompt1 = game.prompts[player1]
+        prompt2 = game.prompts[player2]
+        
+        # Build scoring prompt
+        scoring_prompt = f"""You are judging a creative coding competition. Two players have submitted their HTML/CSS/JS code based on the requirement: "{requirement}".
+
+Player 1 ({player1}) prompt: "{prompt1}"
+Player 1 Code:
+HTML:
+```html
+{player1_sections.get('html', 'No HTML provided')}
+```
+
+CSS:
+```css
+{player1_sections.get('css', 'No CSS provided')}
+```
+
+JavaScript:
+```javascript
+{player1_sections.get('js', 'No JS provided')}
+```
+
+---
+
+Player 2 ({player2}) prompt: "{prompt2}"
+Player 2 Code:
+HTML:
+```html
+{player2_sections.get('html', 'No HTML provided')}
+```
+
+CSS:
+```css
+{player2_sections.get('css', 'No CSS provided')}
+```
+
+JavaScript:
+```javascript
+{player2_sections.get('js', 'No JS provided')}
+```
+
+---
+
+Evaluate both submissions based on these 5 criteria (20 points each, total 100 points):
+
+1. Visual Design and Aesthetics (20 points) - How visually appealing and well-designed is the output?
+2. Adherence to requirement (20 points) - How well does it match the original requirement?
+3. Creativity and Innovation (20 points) - How creative and original is the solution?
+4. Code Quality (20 points) - How clean, organized, and maintainable is the code?
+5. Technical Implementation (20 points) - How well are HTML/CSS/JS features utilized?
+
+Respond ONLY with valid JSON in this exact format:
+{{
+  "player1": {{
+    "visual_design": <number 0-20>,
+    "adherence": <number 0-20>,
+    "creativity": <number 0-20>,
+    "code_quality": <number 0-20>,
+    "technical_implementation": <number 0-20>,
+    "feedback": {{
+      "visual_design": "<feedback text>",
+      "adherence": "<feedback text>",
+      "creativity": "<feedback text>",
+      "code_quality": "<feedback text>",
+      "technical_implementation": "<feedback text>"
+    }}
+  }},
+  "player2": {{
+    "visual_design": <number 0-20>,
+    "adherence": <number 0-20>,
+    "creativity": <number 0-20>,
+    "code_quality": <number 0-20>,
+    "technical_implementation": <number 0-20>,
+    "feedback": {{
+      "visual_design": "<feedback text>",
+      "adherence": "<feedback text>",
+      "creativity": "<feedback text>",
+      "code_quality": "<feedback text>",
+      "technical_implementation": "<feedback text>"
+    }}
+  }}
+}}
+
+Do NOT wrap the JSON in markdown fences. Return only the JSON object."""
+        
+        try:
+            # Call Gemini API
+            response = self._client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=scoring_prompt,
+                config={
+                    "temperature": 0.3,
+                    "top_p": 0.8,
+                    "top_k": 32,
+                    "max_output_tokens": 8192,
+                    "response_mime_type": "application/json",
+                },
+            )
+            
+            raw_text = self._extract_response_text(response)
+            scores_data = self._parse_json_response(raw_text)
+            
+            # The response uses "player1" and "player2" keys, map to actual player names
+            p1_key = "player1"
+            p2_key = "player2"
+            
+            if p1_key not in scores_data or p2_key not in scores_data:
+                raise ExternalServiceError("Gemini response missing required scoring data.")
+            
+            # Extract category scores and feedback
+            p1_data = scores_data[p1_key]
+            p2_data = scores_data[p2_key]
+            
+            # Extract individual category scores
+            category_scores = {
+                player1: {
+                    "visual_design": float(p1_data.get("visual_design", 0)),
+                    "adherence": float(p1_data.get("adherence", 0)),
+                    "creativity": float(p1_data.get("creativity", 0)),
+                    "code_quality": float(p1_data.get("code_quality", 0)),
+                    "technical_implementation": float(p1_data.get("technical_implementation", 0)),
+                },
+                player2: {
+                    "visual_design": float(p2_data.get("visual_design", 0)),
+                    "adherence": float(p2_data.get("adherence", 0)),
+                    "creativity": float(p2_data.get("creativity", 0)),
+                    "code_quality": float(p2_data.get("code_quality", 0)),
+                    "technical_implementation": float(p2_data.get("technical_implementation", 0)),
+                },
+            }
+            
+            # Calculate total scores as sum of all categories
+            scores = {
+                player1: sum(category_scores[player1].values()),
+                player2: sum(category_scores[player2].values()),
+            }
+            
+            feedback = {
+                player1: {
+                    "visual_design": p1_data.get("feedback", {}).get("visual_design", ""),
+                    "adherence": p1_data.get("feedback", {}).get("adherence", ""),
+                    "creativity": p1_data.get("feedback", {}).get("creativity", ""),
+                    "code_quality": p1_data.get("feedback", {}).get("code_quality", ""),
+                    "technical_implementation": p1_data.get("feedback", {}).get("technical_implementation", ""),
+                },
+                player2: {
+                    "visual_design": p2_data.get("feedback", {}).get("visual_design", ""),
+                    "adherence": p2_data.get("feedback", {}).get("adherence", ""),
+                    "creativity": p2_data.get("feedback", {}).get("creativity", ""),
+                    "code_quality": p2_data.get("feedback", {}).get("code_quality", ""),
+                    "technical_implementation": p2_data.get("feedback", {}).get("technical_implementation", ""),
+                },
+            }
+            
+            # Determine winner based on total score
+            winner = max(scores.items(), key=lambda item: item[1])[0] if scores else None
+            
+            # Update game with scores, category scores, and feedback
+            game.scores = scores
+            game.category_scores = category_scores
+            game.feedback = feedback
+            game.winner = winner
+            
+            return self._game_service.complete_game(
+                game_id,
+                scores=scores,
+                category_scores=category_scores,
+                feedback=feedback,
+                winner=winner,
+                status="completed",
+            )
+            
+        except (ExternalServiceError, json.JSONDecodeError, AttributeError, KeyError) as exc:
+            raise ExternalServiceError("Gemini scoring failed.") from exc
+        except Exception as exc:
+            raise ExternalServiceError("Gemini request failed.") from exc
+
     def score_submissions(self, game_id: str) -> Game:
         """Score a game by comparing player submissions with images and prompts.
         

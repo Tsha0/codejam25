@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
+from bson import ObjectId
+
 from ..events import emit_game_event
+from ..extensions import db
+from ..models import Game as MongoGame, GamePlayer
 from ..prompts import get_random_prompt
 from ..schemas import Game, utc_now
 from .base import NotFoundError, ValidationError, generate_id, normalize_name
@@ -24,6 +29,12 @@ class GameService:
     def __init__(self) -> None:
         self._games: Dict[str, Game] = {}
         self._lock = Lock()
+        
+        # Check MongoDB connection on startup
+        if db is not None:
+            print("✅ GameService initialized with MongoDB connection")
+        else:
+            print("⚠️  GameService initialized WITHOUT MongoDB connection - games will not persist")
 
     def create_game(
         self, 
@@ -308,6 +319,13 @@ class GameService:
             self._games[game_id] = game
 
         emit_game_event(game_id, "game_completed", {"game": game.to_dict()})
+        
+        # Persist completed game to MongoDB
+        print(f"🎯 complete_game() reached - about to call _persist_game_to_mongo()")
+        print(f"   Game ID: {game.id}, Status: {game.status}, Players: {game.players}")
+        self._persist_game_to_mongo(game)
+        print(f"✅ complete_game() finished _persist_game_to_mongo() call")
+        
         return game
 
     def _canonical_player(self, game: Game, player_name: str) -> str:
@@ -327,3 +345,139 @@ class GameService:
             if player.lower() == player_name.lower():
                 return player
         raise ValidationError("Player is not part of this game.")
+    
+    def _get_user_by_username(self, username: str) -> Optional[dict]:
+        """Look up a user by username in MongoDB.
+        
+        Args:
+            username: The username to look up
+            
+        Returns:
+            User document if found, None otherwise
+        """
+        if db is None:
+            return None
+        try:
+            # Try exact match first
+            user = db.users.find_one({"username": username})
+            if user:
+                return user
+            
+            # Try case-insensitive match
+            user = db.users.find_one({"username": {"$regex": f"^{username}$", "$options": "i"}})
+            if user:
+                print(f"   ℹ️  Found user with case-insensitive match: '{user['username']}'")
+            return user
+        except Exception as e:
+            print(f"   ❌ Error looking up user '{username}': {e}")
+            return None
+    
+    def _persist_game_to_mongo(self, game: Game) -> None:
+        """Persist a completed game to MongoDB.
+        
+        Args:
+            game: The completed game from in-memory storage
+        """
+        print(f"\n🔍 Attempting to persist game to MongoDB...")
+        print(f"   - Game ID: {game.id}")
+        print(f"   - Status: {game.status}")
+        print(f"   - Players: {game.players}")
+        print(f"   - DB connection: {'✅ Connected' if db is not None else '❌ Not connected'}")
+        
+        if db is None:
+            print("❌ Skipping MongoDB persistence: No database connection")
+            return
+            
+        if game.status != "completed":
+            print(f"❌ Skipping MongoDB persistence: Game status is '{game.status}', not 'completed'")
+            return
+        
+        try:
+            # Look up users by username
+            player1_name = game.players[0]
+            player2_name = game.players[1]
+            
+            print(f"   - Looking up Player 1: '{player1_name}'")
+            user1_doc = self._get_user_by_username(player1_name)
+            print(f"     {'✅ Found' if user1_doc else '❌ Not found'}")
+            
+            print(f"   - Looking up Player 2: '{player2_name}'")
+            user2_doc = self._get_user_by_username(player2_name)
+            print(f"     {'✅ Found' if user2_doc else '❌ Not found'}")
+            
+            # If either user doesn't exist in DB, skip persistence
+            # (This allows for demo/test games with non-registered users)
+            if not user1_doc or not user2_doc:
+                print(f"⚠️  Skipping MongoDB persistence: User(s) not found in database")
+                print(f"    Hint: Make sure both players are logged in with registered accounts")
+                return
+            
+            # Determine results based on winner
+            player1_result = "win" if game.winner == player1_name else "loss"
+            player2_result = "win" if game.winner == player2_name else "loss"
+            
+            # If no winner (tie), both get "loss" - this is a simple fallback
+            if not game.winner:
+                player1_result = "loss"
+                player2_result = "loss"
+            
+            # Create GamePlayer objects
+            player1 = GamePlayer(
+                userId=user1_doc["_id"],
+                username=player1_name,
+                result=player1_result,
+            )
+            
+            player2 = GamePlayer(
+                userId=user2_doc["_id"],
+                username=player2_name,
+                result=player2_result,
+            )
+            
+            # Calculate duration (rough estimate based on timestamps)
+            duration = None
+            if game.created_at and game.updated_at:
+                duration = int((game.updated_at - game.created_at).total_seconds())
+            
+            # Create MongoDB game document
+            mongo_game = MongoGame(
+                player1=player1,
+                player2=player2,
+                status="completed",
+                duration=duration,
+                startedAt=game.created_at,
+                completedAt=game.updated_at,
+                createdAt=game.created_at,
+                updatedAt=game.updated_at,
+            )
+            
+            # Check if game already exists in MongoDB (by a composite key approach)
+            # We'll use a simple heuristic: same players + similar timestamp
+            existing = db.games.find_one({
+                "$or": [
+                    {"player1.userId": user1_doc["_id"], "player2.userId": user2_doc["_id"]},
+                    {"player1.userId": user2_doc["_id"], "player2.userId": user1_doc["_id"]},
+                ],
+                "completedAt": {
+                    "$gte": game.updated_at - timedelta(minutes=5) if game.updated_at else datetime.now(timezone.utc),
+                    "$lte": game.updated_at + timedelta(minutes=5) if game.updated_at else datetime.now(timezone.utc),
+                }
+            })
+            
+            if existing:
+                # Update existing game
+                db.games.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": mongo_game.to_mongo()}
+                )
+                print(f"✅ Updated game in MongoDB: {existing['_id']}")
+            else:
+                # Insert new game
+                result = db.games.insert_one(mongo_game.to_mongo())
+                print(f"✅ Persisted game to MongoDB: {result.inserted_id}")
+                
+        except Exception as e:
+            # Log error but don't fail the game completion
+            print(f"❌ Error persisting game to MongoDB: {e}")
+            import traceback
+            traceback.print_exc()
