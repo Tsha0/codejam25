@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,15 +16,28 @@ export const Component = ({
   question = "Make an app that allows users to do e-transfer",
   onSubmit
 }: ComponentProps) => {
-  const [timeLeft, setTimeLeft] = useState(8); // 8 seconds for testing
+  const [timeLeft, setTimeLeft] = useState(30); // 30 seconds
   const [promptText, setPromptText] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const promptTextRef = useRef(promptText);
+
+  // Keep ref in sync with promptText state
+  useEffect(() => {
+    promptTextRef.current = promptText;
+  }, [promptText]);
+
+  // Reset timer and states when a new game starts (question changes)
+  useEffect(() => {
+    setTimeLeft(30);
+    setPromptText("");
+    setIsSubmitted(false);
+  }, [question]);
 
   useEffect(() => {
     if (isSubmitted || timeLeft <= 0) {
       if (timeLeft <= 0 && onSubmit && !isSubmitted) {
         setIsSubmitted(true);
-        onSubmit(true, promptText);
+        onSubmit(true, promptTextRef.current);
       }
       return;
     }
@@ -34,7 +47,7 @@ export const Component = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, onSubmit, isSubmitted, promptText]);
+  }, [timeLeft, onSubmit, isSubmitted]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
