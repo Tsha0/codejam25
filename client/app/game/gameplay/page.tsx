@@ -46,6 +46,10 @@ export default function GameplayPage() {
         backgroundRepeat: 'no-repeat',
       }}
     >
+        <div 
+  className="absolute inset-0 backdrop-blur-sm"
+  style={{ backgroundColor: "rgba(0,0,0,0.1)" }}
+/>
       <div className="absolute inset-0 flex items-start p-8">
         {/* Card container with smooth transform animation */}
         <div
