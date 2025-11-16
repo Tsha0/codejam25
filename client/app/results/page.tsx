@@ -330,7 +330,6 @@ function PlayerCard({ player, isWinner, side, categories, opponentCategories, on
         className="relative w-[25vw] aspect-video cursor-pointer mb-3"
         onHoverStart={() => setIsHovered(true)}
         onHoverEnd={() => setIsHovered(false)}
-        onClick={onOpenModal}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{
           opacity: 1,
@@ -349,21 +348,40 @@ function PlayerCard({ player, isWinner, side, categories, opponentCategories, on
         }
       >
         {hasCodeOutput ? (
-          <iframe
-            srcDoc={getCodePreview()}
-            className="w-full h-full rounded-lg shadow-2xl transition-all duration-300 border-0 bg-white"
-            sandbox="allow-scripts"
-            title={`${player.username}'s code output`}
-            style={{ pointerEvents: isHovered ? 'auto' : 'none' }}
-          />
+          <>
+            <iframe
+              srcDoc={getCodePreview()}
+              className="w-full h-full rounded-lg shadow-2xl transition-all duration-300 border-0 bg-white"
+              sandbox="allow-scripts"
+              title={`${player.username}'s code output`}
+              style={{ pointerEvents: 'none' }}
+            />
+            {/* Clickable overlay to open modal - always captures clicks */}
+            <div
+              className="absolute inset-0 rounded-lg z-10 cursor-pointer group"
+              onClick={onOpenModal}
+              title="Click to view prompt and code"
+            >
+              {/* Subtle hint on hover */}
+              {/* <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/20 rounded-lg">
+                <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm font-mono border border-green-500/50">
+                  Click to view prompt & code
+                </div>
+              </div> */}
+            </div>
+          </>
         ) : hasImageOutput ? (
         <img
           src={player.output}
           alt={`${player.username}'s submission`}
           className="w-full h-full object-cover rounded-lg shadow-2xl transition-all duration-300"
+          onClick={onOpenModal}
         />
         ) : (
-          <div className="w-full h-full flex items-center justify-center rounded-lg shadow-2xl bg-gray-800">
+          <div 
+            className="w-full h-full flex items-center justify-center rounded-lg shadow-2xl bg-gray-800"
+            onClick={onOpenModal}
+          >
             <span className="text-gray-400 font-mono text-sm">No output available</span>
           </div>
         )}
